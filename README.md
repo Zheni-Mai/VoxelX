@@ -6,7 +6,7 @@
 - Sử dụng trình kết xuất mới mang lại giao diện đẹp và nhiều chức năng
 
 > Phát triển bởi: [**FoxStudio**](https://discord.gg/AbQHGuPKen)  
-> GitHub: UI/UX:[Zheni-Mai](https://github.com/Zheni-Mai), OWNER[ShadowZa982](https://github.com/ShadowZa982)
+> GitHub: UI/UX: [Zheni-Mai](https://github.com/Zheni-Mai), OWNER: [ShadowZa982](https://github.com/ShadowZa982)
 
 ---
 
