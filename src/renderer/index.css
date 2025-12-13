@@ -1,0 +1,266 @@
+/* src/renderer/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;  
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.scrollbar-hide {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.fixed.inset-0[class*="z-"] {
+  top: 44px !important;
+}
+
+.fixed.inset-0.bg-black\/70,
+.fixed.inset-0.bg-black\/80 {
+  top: 44px !important;
+  height: calc(100% - 44px) !important;
+}
+
+input[type="range"].slider-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #22d3ee, #06b6d4);
+  cursor: pointer;
+  border: 4px solid #0f172a;
+  box-shadow: 0 0 25px rgba(6, 182, 212, 0.8);
+  transition: all 0.3s ease;
+}
+
+input[type="range"].slider-thumb::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 40px rgba(6, 182, 212, 1);
+  background: linear-gradient(145deg, #67e8f9, #22d3ee);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  height: 16px;
+  border-radius: 9999px;
+  outline: none;
+}
+
+/* theme động */
+.cyberpunk-animated {
+  position: relative;
+  overflow: hidden;
+  background: #0a0014;
+}
+
+.cyberpunk-animated::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+
+  background: linear-gradient(
+    135deg,
+    #ff00ff 0%,
+    #9935c7 15%,
+    #5e00a3 30%,
+    #8b00ff 50%,
+    #9935c7 70%,
+    #da00ff 100%
+  );
+  background-size: 600% 600%;
+  opacity: 0.7;
+  animation: cyberpunkMatrix 16s linear infinite;
+}
+
+@keyframes cyberpunkMatrix {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+.cyberpunk-animated::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 30px,
+      rgba(0, 255, 255, 0.03) 30px,
+      rgba(0, 255, 255, 0.03) 31px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 30px,
+      rgba(255, 0, 255, 0.02) 30px,
+      rgba(255, 0, 255, 0.02) 31px
+    );
+  animation: matrixRain 20s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes matrixRain {
+  0%   { transform: translateY(-100%) translateX(-50%); }
+  100% { transform: translateY(100%) translateX(50%); }
+}
+
+.sunset-animated {
+  position: relative;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.sunset-animated::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+
+  background: linear-gradient(
+    to bottom,
+    #1e3a8a 0%,   
+    #7c3aed 15%, 
+    #ec4899 30%, 
+    #f97316 50%,
+    #dc2626 70%,
+    #7c2d12 100%  
+  );
+
+  box-shadow: 
+    0 0 200px 100px #ff6b35,
+    0 0 400px 200px #ff8c42,
+    0 0 600px 300px #f97316;
+  
+  border-radius: 50%;
+  width: 300px;
+  height: 300px;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  
+  animation: sunsetFall 50s linear infinite;
+}
+
+@keyframes sunsetFall {
+  0%   { top: 10%; opacity: 1; }
+  80%  { top: 70%; opacity: 0.8; }
+  100% { top: 90%; opacity: 0; }
+}
+
+.sunset-animated::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+
+  background: 
+    repeating-radial-gradient(
+      circle at 50% 100%,
+      transparent 0%,
+      rgba(255, 147, 22, 0.1) 10%,
+      transparent 20%
+    ),
+    repeating-radial-gradient(
+      circle at 50% 100%,
+      transparent 0%,
+      rgba(255, 99, 71, 0.08) 15%,
+      transparent 30%
+    );
+
+  background-size: 200% 200%;
+  animation: sunsetWaves 25s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+@keyframes sunsetWaves {
+  0%, 100% { 
+    background-position: 50% 100%, 50% 100%; 
+    transform: scale(1);
+  }
+  50% { 
+    background-position: 50% 80%, 50% 90%; 
+    transform: scale(1.3);
+  }
+}
+
+.sunset-animated .clouds {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: 
+    url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 20"><path d="M0,10 Q25,0 50,10 T100,10 L100,20 L0,20 Z" fill="rgba(255,255,255,0.08)"/></svg>') 
+    repeat-x;
+  background-size: 300px 100px;
+  background-position: 0 20%;
+  animation: cloudDrift 120s linear infinite;
+}
+
+@keyframes cloudDrift {
+  0%   { background-position-x: 0; }
+  100% { background-position-x: 1000px; }
+}
+
+.sunset-animated input,
+.sunset-animated .border {
+  background: rgba(249, 115, 22, 0.15) !important;
+  transition: all 0.4s ease;
+}
+
+
+@keyframes border-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.animate-border-flow {
+  background: linear-gradient(90deg, #06b6d4, #3b82f6, #a855f7, #ec4899, #06b6d4);
+  background-size: 300% 300%;
+  animation: border-flow 6s linear infinite linear;
+}

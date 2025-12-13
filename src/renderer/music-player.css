@@ -1,0 +1,11 @@
+/* src/renderer/styles/music-player.css */
+@keyframes border-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.animate-border-flow {
+  background: linear-gradient(90deg, #06b6d4, #3b82f6, #a855f7, #ec4899, #06b6d4);
+  background-size: 300% 300%;
+  animation: border-flow 6s linear infinite linear;
+}

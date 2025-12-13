@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Đăng nhập Ely.by thành công!</title>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: system-ui; text-align: center; padding: 50px; background: #1a1a2e; color: #eee; }
+    .loader { border: 8px solid #f3f3f3; border-top: 8px solid #9c4dff; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin: 30px auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <h1>Đang xử lý đăng nhập Ely.by...</h1>
+  <div class="loader"></div>
+  <p>Vui lòng chờ một chút, launcher sẽ mở lại ngay!</p>
+
+  <script>
+    // Lấy code từ URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const error = urlParams.get('error');
+
+    if (error) {
+      alert('Đăng nhập thất bại: ' + (urlParams.get('error_description') || error));
+      window.close();
+    } else if (code) {
+      // Gửi code về launcher qua preload (Electron)
+      if (window.electronAPI && window.electronAPI.elybyCallback) {
+        window.electronAPI.elybyCallback(code, state);
+      }
+      document.body.innerHTML = '<h1>Thành công! Bạn có thể đóng tab này.</h1>';
+    }
+  </script>
+</body>
+</html>

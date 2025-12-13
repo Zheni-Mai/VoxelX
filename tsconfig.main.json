@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "module": "commonjs",
+    "outDir": "./dist/main",
+    "rootDir": "./src/main",
+    "tsBuildInfoFile": "./dist/main/.tsbuildinfo",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/main"]
+}
