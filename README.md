@@ -6,7 +6,7 @@
 - Sử dụng trình kết xuất mới mang lại giao diện đẹp và nhiều chức năng
 
 > Phát triển bởi: [**FoxStudio**](https://discord.gg/AbQHGuPKen)  
-> GitHub: [Zheni-Mai](https://github.com/Zheni-Mai) [ShadowZa982](https://github.com/ShadowZa982)
+> GitHub: UI/UX:[Zheni-Mai](https://github.com/Zheni-Mai), OWNER[ShadowZa982](https://github.com/ShadowZa982)
 
 ---
 
@@ -16,6 +16,7 @@
 
 <img width="1450" height="799" alt="{8E19FCCC-1EF9-4670-A29C-4B46FCD8F5C9}" src="https://github.com/user-attachments/assets/9b8faa9d-6f54-4b00-a653-42593544d697" />
 
+- Đây là một bản xây dựng lại từ phiên bản cũ.
 ---
 
 ### 🌟 Đặc điểm nổi bật
