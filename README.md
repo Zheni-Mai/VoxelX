@@ -25,25 +25,32 @@
 - 👥 **Hỗ trợ đa tài khoản:** Microsoft (Xbox Live) + Offline + Ely.by
 - ⚡ **Tải phiên bản tự động:** Hỗ trợ tất cả từ `0.1.0 → mới nhất` *(snapshot, release, pre-release...)*
 - 🧩 **Tích hợp loader:** Fabric, Forge, Quilt, NeoForge, Vanilla
-- ☕ **Tích hợp Java:** Phát hiện & tải Java 17+ nếu thiếu
+- ☕ **Tích hợp Java:** Có sẵn 4 phiên bản java trong trình cài đặt khi khởi động game
 - 🔁 **Cập nhật tự động:** Kiểm tra cập nhật trong instance và tải thủ công bằng cánh ấn nút, launcher sẽ không tự động cập nhật để tránh lỗi phát sinh từ phiên bản mới nếu phiên bản trước đó hoàn toàn ổn
 - ⚙️ **Tùy chỉnh mạnh mẽ:** Sidebar cho Mods, Servers, Changelog
 - 🔒 **Bảo mật cao:** Lưu session an toàn, hỗ trợ XboxAuth
-- 🧑‍💻 **Offline Mode:** Không cần tài khoản Premium để chơi
-- 🌐 **Online Mode:** Cần Premium để chơi trên server chính thức
 
 ---
 
 ## Dành cho **Dev**
 - Bạn có thể tìm thấy tài liệu tham khảo ở đây , chúng tôi rất hoan nghênh các ý kiến đóng góp của tất cả mọi người về phát triển và xây dựng ứng dụng.
+- Sử dụng:
+-  - [Electron](https://www.electronjs.org/)
+   - [NodeJs](https://nodejs.org/en)
+   - [ViteJs](https://vite.dev/)
+- Để tạo thành một **launcher** hoàn chỉnh
+  sử dụng các tài nguyên package như:
+  - **@xmcl** giúp xây dựng trình chạy ( dựa vào tài liệu của [Xmcl](https://github.com/Voxelum/x-minecraft-launcher)  ).
+  - **electron,react,vite** Phần hiển thị chính.
+  - **msmc** xác thực tài khoản minecraft auth ( thường được các client như **Feather**, **Lunar**, **BadLion** sử dụng ).
+  - **skinview3d** hiển thị skin player3d.
 
 ## 🔗 Liên Kết Hữu Ích
 
 - 🌍 GitHub Repo: [VoxelX](https://github.com/Zheni-Mai/VoxelX)
 - 📘 Minecraft Wiki: [minecraft.wiki](https://minecraft.wiki)  
 - 🧱 CurseForge Mods: [curseforge.com/minecraft/mc-mods](https://curseforge.com/minecraft/mc-mods)  
-- 🔮 Modrinth Mods: [modrinth.com/mods](https://modrinth.com/mods)  
-- 💬 Hỗ trợ: Mở **Issue** trên GitHub hoặc tham gia **Discord VoxelX**
+- 🔮 Modrinth Mods: [modrinth.com/mods](https://modrinth.com/mods) 
 
 ---
 
@@ -62,4 +69,5 @@
 
 ### ❤️ Cảm ơn bạn đã sử dụng **VoxelX!**
 Phát triển bởi **ShadowZa982 – Foxstudio**  
+**ý là tôi chỉ là buid lại tài nguyên :V**
 Hẹn gặp lại ở phiên bản tiếp theo!
