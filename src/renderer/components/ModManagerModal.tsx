@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { X, Download, FolderOpen, Loader2, Trash2, Files } from 'lucide-react'
+import { MotionDiv } from '../utils/motion'
 
 interface ModManagerModalProps {
   isOpen: boolean
@@ -62,26 +63,22 @@ export default function ModManagerModal({ isOpen, onClose, profileName, gameDire
 
   return (
     <>
-      {/* Overlay */}
-      <motion.div
+      <MotionDiv
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
+        className="fixed inset-0 backdrop-blur-sm z-50"
         onClick={onClose}
       />
-
-      {/* Modal */}
-      <motion.div
+      <MotionDiv
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ type: "spring", damping: 30, stiffness: 400 }}
-        className="fixed inset-4 z-50 flex items-center justify-center"
+        className="fixed inset-4 z-50 flex bg-black/70 backdrop-blur-2xl items-center justify-center"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-gray-900/95 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-          {/* Header */}
+        <div className="backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b border-white/10">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex-center">
@@ -99,8 +96,6 @@ export default function ModManagerModal({ isOpen, onClose, profileName, gameDire
               <X size={24} className="text-gray-400" />
             </button>
           </div>
-
-          {/* Body */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-white">
@@ -135,7 +130,7 @@ export default function ModManagerModal({ isOpen, onClose, profileName, gameDire
             ) : (
               <div className="space-y-3">
                 {mods.map((mod) => (
-                  <motion.div
+                  <MotionDiv
                     key={mod.filename}
                     layout
                     initial={{ opacity: 0 }}
@@ -181,13 +176,13 @@ export default function ModManagerModal({ isOpen, onClose, profileName, gameDire
                         <Trash2 size={18} />
                       </button>
                     </div>
-                  </motion.div>
+                  </MotionDiv>
                 ))}
               </div>
             )}
           </div>
         </div>
-      </motion.div>
+      </MotionDiv>
     </>
   )
 }

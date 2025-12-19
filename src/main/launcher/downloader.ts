@@ -101,11 +101,8 @@ export class SafeParallelDownloader {
 
           this.onProgress(percent, `Tải: ${task.name}`)
         }
-
         await writer.close()
         await file.close()
-
-        // Kiểm tra hash
         if (task.hash && hasher) {
           const calculated = hasher.digest('hex').toLowerCase()
           if (calculated !== task.hash.toLowerCase()) {

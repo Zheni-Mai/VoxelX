@@ -2,6 +2,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Copy, Upload, Loader2, Minimize2, CheckCircle } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
+import { MotionDiv } from '../utils/motion'
 
 interface LaunchLog {
   message: string
@@ -137,23 +138,21 @@ export default function LaunchModal() {
 
   return (
     <AnimatePresence>
-      {/* Modal */}
       {!isMinimized ? (
-        <motion.div
+        <MotionDiv
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 backdrop-blur-sm z-[9999] flex items-center justify-center p-6"
           onClick={() => !isCompleted && setIsOpen(false)}
         >
-          <motion.div
+          <MotionDiv
             initial={{ scale: 0.9, y: 100 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.9, y: 100 }}
             className="bg-gray-900/95 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-3xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col"
             onClick={e => e.stopPropagation()}
           >
-            {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <h2 className="text-3xl font-black text-cyan-400 flex items-center gap-3">
                 {isCompleted ? <CheckCircle className="text-emerald-400" /> : <Loader2 className="animate-spin" />}
@@ -174,8 +173,6 @@ export default function LaunchModal() {
                 )}
               </div>
             </div>
-
-            {/* Nội dung */}
             <div className="px-8 pt-6">
               <div className="text-xl font-medium text-white mb-3">{status}</div>
               <div className="w-full bg-white/10 rounded-xl h-12 overflow-hidden">
@@ -201,8 +198,6 @@ export default function LaunchModal() {
                 {!currentTask && progress < 100 && 'Đang chuẩn bị...'}
               </div>
             </div>
-
-            {/* Log */}
             <div ref={logContainerRef} className="flex-1 overflow-y-auto p-8 font-mono text-sm scrollbar-thin scrollbar-thumb-white/20">
               {logs.length === 0 ? (
                 <div className="text-center text-gray-500 py-20">
@@ -225,8 +220,6 @@ export default function LaunchModal() {
                 ))
               )}
             </div>
-
-            {/* Footer */}
             <div className="p-6 border-t border-white/10 flex gap-4 flex-wrap items-center">
               <button onClick={copyLog} className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl flex items-center gap-3 transition">
                 <Copy size={20} /> Copy Log
@@ -238,17 +231,16 @@ export default function LaunchModal() {
                 {logs.length} dòng log
               </div>
             </div>
-          </motion.div>
-        </motion.div>
+          </MotionDiv>
+        </MotionDiv>
       ) : (
-        <motion.div
+        <MotionDiv
           initial={{ scale: 0, y: 100 }}
           animate={{ scale: 1, y: 0 }}
           className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3"
         >
-          {/* Thông báo hoàn thành */}
           {isCompleted && (
-            <motion.div
+            <MotionDiv
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               className="bg-emerald-600/95 backdrop-blur-xl text-white px-6 py-4 rounded-2xl shadow-2xl border border-emerald-400/50 flex items-center gap-4 cursor-pointer"
@@ -261,10 +253,8 @@ export default function LaunchModal() {
                 <div className="font-bold text-lg">Minecraft đã khởi động!</div>
                 <div className="text-sm opacity-90">Click để xem log</div>
               </div>
-            </motion.div>
+            </MotionDiv>
           )}
-
-          {/* Thanh tiến trình nhỏ */}
           {!isCompleted && (
             <motion.div
               layoutId="launch-tray"
@@ -298,7 +288,7 @@ export default function LaunchModal() {
               </div>
             </motion.div>
           )}
-        </motion.div>
+        </MotionDiv>
       )}
     </AnimatePresence>
   )

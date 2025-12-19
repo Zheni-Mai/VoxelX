@@ -1,6 +1,6 @@
 // src/renderer/settings/SettingsPanel.tsx
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Gamepad2, Globe, HardDrive, Bell, Shield, Save, RefreshCw } from 'lucide-react'
+import { X, Gamepad2, Globe, HardDrive, Bell, Shield, Save, RefreshCw, Sparkles } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { presetThemes } from '../themes'
 import GameTab from './tabs/GameTab'
@@ -9,6 +9,8 @@ import StorageTab from './tabs/StorageTab'
 import PrivacyTab from './tabs/PrivacyTab'
 import { playSound } from '../utils/playSound'
 import UpdaterTab from './tabs/UpdaterTab'
+import LauncherTab from './tabs/LauncherTab';
+import { MotionDiv } from '../utils/motion'
 
 interface Settings {
   game: {
@@ -36,6 +38,10 @@ interface Settings {
   updater: {
     autoCheckOnStartup: boolean  
   }
+  launcher: {
+    language: 'vi' | 'en';
+    animationsEnabled: boolean;
+  };
 }
 
 const defaultSettings: Settings = {
@@ -54,17 +60,22 @@ const defaultSettings: Settings = {
   updater: {
     autoCheckOnStartup: true 
   },
+  launcher: {
+    language: 'vi',
+    animationsEnabled: true,
+  },
 }
 
-type Tab = 'game' | 'general' | 'updater' | 'storage' | 'privacy'
+type Tab = 'game' | 'general' | 'launcher' | 'updater' | 'storage' | 'privacy'
 
 const tabs = [
   { id: 'game', label: 'Game Settings', icon: Gamepad2 },
   { id: 'general', label: 'Giao diện', icon: Globe },
+  { id: 'launcher', label: 'Launcher', icon: Sparkles },
   { id: 'updater', label: 'Cập nhật', icon: RefreshCw },
   { id: 'storage', label: 'Lưu trữ', icon: HardDrive },
   { id: 'privacy', label: 'Quyền riêng tư', icon: Shield },
-] as const
+] as const;
 
 interface Props {
   isOpen: boolean
@@ -130,6 +141,8 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
     }
   }
 
+  
+
   useEffect(() => {
     if (!isOpen) return
 
@@ -184,6 +197,9 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
         await window.electronAPI.fileAPI.writeFile(dir, 'settings.json', JSON.stringify(settings, null, 2))
         window.toast.success('Đã lưu cài đặt thành công!', 'Thành công')
         playSound('success')
+        window.dispatchEvent(new CustomEvent('settings-updated', { 
+        detail: settings 
+      }))
     } catch (err) {
         console.error('Lỗi lưu cài đặt:', err)
         window.toast.error('Lỗi lưu cài đặt!', 'Lỗi')
@@ -202,7 +218,7 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -211,13 +227,13 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
             aria-hidden="true"
           />
 
-          <motion.div
+          <MotionDiv
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 320 }}
             className="fixed right-0 top-12 h-[calc(100vh-3rem)] w-full max-w-6xl 
-                      bg-gray-900/95 backdrop-blur-2xl border border-white/20 
+                      bg-black/70 backdrop-blur-1xl border border-white/20 
                       rounded-3xl rounded-r-none overflow-hidden shadow-2xl z-50 flex 
                       font-mono text-white"
             role="dialog"
@@ -272,7 +288,7 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
               <AnimatePresence mode="wait">
                 
                 {activeTab === 'game' && (
-                  <motion.div
+                  <MotionDiv
                     key="game"
                     initial={{ opacity: 0, x: 30 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -285,11 +301,11 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
                       freeRam={freeRam}
                       update={(key, value) => update('game', key, value)}
                     />
-                  </motion.div>
+                  </MotionDiv>
                 )}
 
                 {activeTab === 'general' && (
-                  <motion.div
+                  <MotionDiv
                     key="game"
                     initial={{ opacity: 0, x: 30 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -302,11 +318,26 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
                       applyPresetTheme={applyPresetTheme}
                       saveTheme={saveTheme}
                     />
-                  </motion.div>
+                  </MotionDiv>
+                )}
+
+                {activeTab === 'launcher' && (
+                  <MotionDiv
+                    key="launcher"
+                    initial={{ opacity: 0, x: 30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="space-y-12"
+                  >
+                    <LauncherTab
+                      settings={settings.launcher}
+                      update={(key, value) => update('launcher', key, value)}
+                    />
+                  </MotionDiv>
                 )}
 
                 {activeTab === 'updater' && (
-                  <motion.div
+                  <MotionDiv
                     key="updater"
                     initial={{ opacity: 0, x: 30 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -317,11 +348,11 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
                       settings={settings.updater}
                       update={(key, value) => update('updater', key, value)}
                     />
-                  </motion.div>
+                  </MotionDiv>
                 )}
 
                 {activeTab === 'storage' && (
-                  <motion.div
+                  <MotionDiv
                     key="game"
                     initial={{ opacity: 0, x: 30 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -332,11 +363,11 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
                       gameDirectory={settings.storage.gameDirectory}
                       onDirectoryChange={(dir) => update('storage', 'gameDirectory', dir)}
                     />
-                  </motion.div>
+                  </MotionDiv>
                 )}
 
                 {activeTab === 'privacy' && (
-                  <motion.div
+                  <MotionDiv
                     key="game"
                     initial={{ opacity: 0, x: 30 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -347,11 +378,11 @@ export default function SettingsPanel({ isOpen, onClose }: Props) {
                       settings={settings.privacy}
                       update={(key, value) => update('privacy', key, value)}
                     />
-                  </motion.div>
+                  </MotionDiv>
                 )}
               </AnimatePresence>
             </div>
-          </motion.div>
+          </MotionDiv>
         </>
       )}
     </AnimatePresence>

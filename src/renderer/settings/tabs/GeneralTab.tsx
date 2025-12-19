@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import { Globe, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { presetThemes } from '../../themes'
+import { MotionDiv } from '../../utils/motion'
 import bg1 from '@/assets/backgrounds/1.png'
 import bg2 from '@/assets/backgrounds/2.png'
 import bg3 from '@/assets/backgrounds/3.png'
@@ -113,7 +114,7 @@ export default function GeneralTab({
 
       <AnimatePresence mode="wait">
         {activeSubTab === 'colors' && (
-          <motion.div
+          <MotionDiv
             key="colors"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -251,10 +252,10 @@ export default function GeneralTab({
                 Áp dụng & Lưu Theme
               </button>
             </div>
-          </motion.div>
+          </MotionDiv>
         )}
         {activeSubTab === 'wallpapers' && (
-          <motion.div
+          <MotionDiv
             key="wallpapers"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -269,7 +270,7 @@ export default function GeneralTab({
               <div className="relative max-w-5xl mx-auto">
                 <div className="relative h-96 overflow-hidden rounded-3xl bg-black/60 backdrop-blur-sm border border-white/10">
                   <AnimatePresence mode="wait">
-                    <motion.div
+                    <MotionDiv
                       key={wallpaperIndex}
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -284,7 +285,7 @@ export default function GeneralTab({
                         whileHover={{ scale: 1.03 }}
                         onClick={() => setBackground('image', builtinBackgrounds[wallpaperIndex])}
                       />
-                    </motion.div>
+                    </MotionDiv>
                   </AnimatePresence>
 
                   <button
@@ -311,7 +312,7 @@ export default function GeneralTab({
                 </p>
               </div>
             </div>
-          </motion.div>
+          </MotionDiv>
         )}
       </AnimatePresence>
     </div>

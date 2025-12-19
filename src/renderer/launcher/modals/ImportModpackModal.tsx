@@ -1,5 +1,6 @@
 // src/renderer/profiles/modals/ImportModpackModal.tsx
 import { motion } from 'framer-motion'
+import { MotionDiv } from '../../utils/motion'
 import { X, Upload, Archive } from 'lucide-react'
 
 interface Props {
@@ -12,8 +13,8 @@ export default function ImportModpackModal({ isOpen, onClose }: Props) {
 
   return (
     <>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 backdrop-blur-sm z-50" />
-      <motion.div
+      <MotionDiv initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 backdrop-blur-sm z-50" />
+      <MotionDiv
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
@@ -38,7 +39,7 @@ export default function ImportModpackModal({ isOpen, onClose }: Props) {
             <X size={32} />
           </button>
         </div>
-      </motion.div>
+      </MotionDiv>
     </>
   )
 }

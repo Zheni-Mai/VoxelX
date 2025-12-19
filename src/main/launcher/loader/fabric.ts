@@ -1,7 +1,7 @@
 // src/main/launcher/fabric.ts
 import fs from 'fs/promises'
 import path from 'path'
-import { fileExists } from './utils.js'
+import { fileExists } from '../utils.js'
 import { installVanillaVersion } from './vanilla.js'
 
 export async function installFabric(

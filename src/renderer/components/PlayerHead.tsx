@@ -24,24 +24,6 @@ useEffect(() => {
 
     let finalUrl = ''
 
-    if (username) {
-        try {
-          const currentProfile = await window.electronAPI.profileAPI.getCurrentProfile()
-          if (currentProfile?.gameDirectory) {
-            const cslSkin = await window.electronAPI.getCustomSkinLoaderSkin({
-              gameDir: currentProfile.gameDirectory,
-              username
-            })
-
-            if (cslSkin) {
-              finalUrl = await createHeadFromSkin(cslSkin, size)
-            }
-          }
-        } catch (err) {
-          console.log('Không có skin CustomSkinLoader cho:', username)
-        }
-      }
-
       if (!finalUrl && username) {
         try {
           const base64 = await window.electronAPI.getLocalSkinBase64(username)

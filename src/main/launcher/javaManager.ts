@@ -42,7 +42,7 @@ export class JavaManager {
       const fallback = await this.findBundledJava(17)
       if (fallback) return fallback
     }
-    return await this.findSystemJava() || { path: 'javaw.exe', version: 8, source: 'system' }
+    throw new Error(`Không tìm thấy Java bundled ${required}. Launcher sẽ tự động tải.`)
   }
 
   async findBundledJava(targetVersion: 8 | 11 | 17 | 21): Promise<JavaInfo | null> {
@@ -55,45 +55,6 @@ export class JavaManager {
     return null
   }
 
-  private async findSystemJava(): Promise<JavaInfo | null> {
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
-    const execAsync = promisify(exec)
-
-    const commonPaths = [
-      'C:\\Program Files\\Java\\jdk-21\\bin\\javaw.exe',
-      'C:\\Program Files\\Eclipse Adoptium\\jdk-21.*\\bin\\javaw.exe',
-      'C:\\Program Files\\Java\\jdk-17\\bin\\javaw.exe',
-      'C:\\Program Files\\Eclipse Adoptium\\jdk-17.*\\bin\\javaw.exe',
-      'C:\\Program Files\\Java\\jre-8\\bin\\javaw.exe',
-    ]
-
-    for (let p of commonPaths) {
-      if (p.includes('*')) {
-        try {
-          const dir = p.replace(/\\bin\\javaw\.exe$/, '').replace(/jdk-21\.\*/, 'jdk-21.*')
-          const items = await fs.readdir(path.dirname(dir))
-          for (const item of items) {
-            if (item.startsWith('jdk-21.') || item.startsWith('jdk-17.')) {
-              const javaPath = path.join(path.dirname(dir), item, 'bin', 'javaw.exe')
-              if (await fileExists(javaPath)) {
-                const ver = item.includes('21') ? 21 : 17
-                return { path: javaPath, version: ver, source: 'system' }
-              }
-            }
-          }
-        } catch {}
-      } else if (await fileExists(p)) {
-        const ver = p.includes('21') ? 21 : p.includes('17') ? 17 : 8
-        return { path: p, version: ver, source: 'system' }
-      }
-    }
-    try {
-      await execAsync('javaw -version')
-      return { path: 'javaw.exe', version: 8, source: 'system' }
-    } catch {}
-    return null
-  }
 
 async ensureJava(version: 8 | 11 | 17 | 21, progress?: (p: number, msg: string) => void): Promise<string> {
   const bundled = await this.findBundledJava(version)

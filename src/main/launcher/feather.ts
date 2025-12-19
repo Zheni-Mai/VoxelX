@@ -39,8 +39,6 @@ export async function installFeatherUI(
 
   try {
     log('Đang tải Feather Client UI...', 'info')
-
-    // Tải index.json
     const indexRes = await fetch(FEATHER_INDEX_URL)
     if (!indexRes.ok) throw new Error('Không thể tải index.json từ Feather')
     const index: LoaderIndex = await indexRes.json()
@@ -51,7 +49,7 @@ export async function installFeatherUI(
     const totalFiles = index.libraries.length + index.fabricLoader.length
     const updateProgress = () => {
       if (progress) {
-        const percent = Math.round(downloadedCount / totalFiles) * 15 + 80 // 80-95%
+        const percent = Math.round(downloadedCount / totalFiles) * 15 + 80
         progress(percent, `Tải Feather UI... (${downloadedCount}/${totalFiles})`)
       }
     }

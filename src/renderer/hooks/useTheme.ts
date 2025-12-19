@@ -1,5 +1,7 @@
 // src/hooks/useTheme.ts 
 import { useEffect, useState } from 'react'
+import { startElectronParticles, stopElectronParticles } from '../themes/electronParticles'
+
 
 export type Theme = {
   name: string
@@ -33,6 +35,17 @@ export const useTheme = () => {
       document.body.classList.add(t.backgroundClass)
     }
   }
+  
+  useEffect(() => {
+    stopElectronParticles()
+
+    if (theme.backgroundClass === 'electron-network-animated') {
+      startElectronParticles()
+    }
+    return () => {
+      stopElectronParticles()
+    }
+  }, [theme.backgroundClass])
 
   useEffect(() => {
     const load = async () => {

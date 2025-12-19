@@ -8,5 +8,6 @@ export interface Account {
   accessToken?: string
   refreshToken?: string
   clientToken?: string
+  client_Id?: string
   authProvider?: 'mojang' | 'microsoft' | 'elyby'
 }

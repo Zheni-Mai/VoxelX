@@ -10,24 +10,27 @@ function resolveLibraryUrls(lib: any): string[] {
   const primary = lib.downloads?.artifact?.url || lib.downloads?.classifiers?.[nativeId()]?.url
   if (primary) return [primary]
 
-  if (lib.name) {
-    const mavenPath = mavenNameToPath(lib.name)
-    const bases = [
-      'https://libraries.minecraft.net',
-      'https://maven.aliyun.com/repository/public',
-      'https://repo1.maven.org/maven2',
-      'https://maven.fabricmc.net'
-    ]
-    return bases.map(b => `${b.replace(/\/+$/, '')}/${mavenPath}`)
-  }
-  return []
+  if (!lib.name) return []
+
+  const mavenPath = mavenNameToPath(lib.name)
+  const bases = [
+    'https://libraries.minecraft.net',
+    'https://maven.aliyun.com/repository/public',
+    'https://repo1.maven.org/maven2',
+    'https://maven.fabricmc.net',
+    'https://maven.quiltmc.org/repository/release',
+    'https://maven.neoforged.net/releases',
+    'https://bmclapi2.bangbang93.com/maven',
+  ]
+
+  return bases.map(base => `${base.replace(/\/+$/, '')}/${mavenPath}`)
 }
 
 export async function downloadLibraries(
   v: any,
   gameDir: string,
   signal: AbortSignal,
-  log: (msg: string, level?: 'info' | 'warn' | 'error') => void,
+  log: (msg: string, level?: 'info' | 'warn' | 'error' | 'success') => void,
   onProgress: (percent: number, msg: string) => void
 ) {
   const libsDir = path.join(gameDir, 'libraries')
@@ -41,9 +44,10 @@ export async function downloadLibraries(
     const urls = resolveLibraryUrls(lib)
     if (urls.length === 0) continue
 
-    const artifactPath = lib.downloads?.artifact?.path ||
-                        lib.downloads?.classifiers?.[nativeId()]?.path ||
-                        mavenNameToPath(lib.name)
+    const artifactPath =
+      lib.downloads?.artifact?.path ||
+      lib.downloads?.classifiers?.[nativeId()]?.path ||
+      mavenNameToPath(lib.name)
 
     const libPath = path.join(libsDir, artifactPath)
     if (await fileExists(libPath)) continue
@@ -59,14 +63,14 @@ export async function downloadLibraries(
   }
 
   if (tasks.length === 0) {
+    log('Tất cả thư viện đã sẵn sàng', 'success')
     return
   }
 
-  log(`Tải ${tasks.length} thư viện`)
-
-  const downloader = new SafeParallelDownloader(16, signal, onProgress)
+  log(`Đang tải ${tasks.length} thư viện...`)
+  const downloader = new SafeParallelDownloader(16, signal, onProgress, log)
   await downloader.download(tasks)
-
+  log('Hoàn tất tải thư viện', 'success')
 }
 
 export async function extractNatives(
@@ -129,32 +133,67 @@ export async function extractNatives(
   log(`Đã giải nén ${extractedCount} native libraries`, 'success')
 }
 
-export async function buildClasspath(v: any, gameDir: string, clientJar: string): Promise<string> {
+async function findLoaderJar(gameDir: string): Promise<string | null> {
   const libsDir = path.join(gameDir, 'libraries')
-  const entries: string[] = []
 
-  for (const lib of v.libraries) {
-    if (!isAllowed(lib)) continue
+  const candidates = [
+    'org/quiltmc/quilt-loader',
+    'net/fabricmc/fabric-loader'
+  ]
 
-    let libPath: string | null = null
-
-    if (lib.downloads?.artifact?.path) {
-      libPath = path.join(libsDir, lib.downloads.artifact.path)
-    } else if (lib.name) {
-      try {
-        const mavenPath = mavenNameToPath(lib.name)
-        const candidatePath = path.join(libsDir, mavenPath)
-        if (await fileExists(candidatePath)) {
-          libPath = candidatePath
+  try {
+    const items = await fs.readdir(libsDir, { withFileTypes: true })
+    for (const item of items) {
+      if (!item.isDirectory()) continue
+      const orgPath = path.join(libsDir, item.name)
+      const subItems = await fs.readdir(orgPath, { withFileTypes: true })
+      for (const sub of subItems) {
+        if (!sub.isDirectory() || !candidates.some(c => item.name + '/' + sub.name === c)) continue
+        const artifactPath = path.join(orgPath, sub.name)
+        const versions = await fs.readdir(artifactPath, { withFileTypes: true })
+        for (const ver of versions) {
+          if (!ver.isDirectory()) continue
+          const jarName = `${sub.name}-${ver.name}.jar`
+          const jarPath = path.join(artifactPath, ver.name, jarName)
+          if (await fileExists(jarPath)) {
+            return jarPath
+          }
         }
-      } catch {}
+      }
     }
-
-    if (libPath && await fileExists(libPath)) {
-      entries.push(libPath)
-    }
+  } catch {
   }
 
-  entries.push(clientJar)
+  return null
+}
+
+
+export async function buildClasspath(v: any, gameDir: string, clientJar: string, profile?: any): Promise<string> {
+  const entries: string[] = []
+  if (v.id?.includes('fabric-loader') || v.id?.includes('quilt-loader') || v.id?.includes('forge') || v.id?.includes('neoforge') || v.id?.includes('liteloader') || v.id?.includes('optifine')) {
+    const loaderJar = await findLoaderJar(gameDir)
+    if (loaderJar) entries.push(loaderJar)
+  }
+  if (v.libraries) {
+    for (const lib of v.libraries) {
+      if (!isAllowed(lib)) continue
+
+      let libPath: string | null = null
+      if (lib.downloads?.artifact?.path) {
+        libPath = path.join(gameDir, 'libraries', lib.downloads.artifact.path)
+      } else if (lib.name) {
+        const mavenPath = mavenNameToPath(lib.name)
+        libPath = path.join(gameDir, 'libraries', mavenPath)
+      }
+
+      if (libPath && await fileExists(libPath)) {
+        entries.push(libPath)
+      }
+    }
+  }
+  if (await fileExists(clientJar)) {
+    entries.push(clientJar)
+  }
+
   return entries.join(process.platform === 'win32' ? ';' : ':')
 }

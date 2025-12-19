@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { X, FolderOpen, Loader2, Trash2, Package } from 'lucide-react'
+import { MotionDiv } from '../../utils/motion'
 
 interface Mod {
   filename: string
@@ -84,7 +85,7 @@ export default function ModsListModal({ isOpen, onClose, profile }: Props) {
 
   return (
     <>
-      <motion.div
+      <MotionDiv
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -92,7 +93,7 @@ export default function ModsListModal({ isOpen, onClose, profile }: Props) {
         onClick={onClose}
       />
 
-      <motion.div
+      <MotionDiv
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
@@ -100,8 +101,8 @@ export default function ModsListModal({ isOpen, onClose, profile }: Props) {
         className="fixed inset-0 z-50 flex items-center justify-center p-6"
         onClick={e => e.stopPropagation()}
       >
-        <div className="bg-gray-900/95 backdrop-blur-3xl rounded-3xl border border-white/20 shadow-3xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between p-6 border-b border-white/10 bg-gray-900/80">
+        <div className=" bg-black/70 backdrop-blur-1xl rounded-3xl border border-white/20 shadow-3xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b border-white/10">
             <div className="flex items-center gap-4">
               <Package size={36} className="text-cyan-400" />
               <div>
@@ -139,7 +140,7 @@ export default function ModsListModal({ isOpen, onClose, profile }: Props) {
               </div>
             ) : (
               mods.map(mod => (
-                <motion.div
+                <MotionDiv
                   key={mod.filename}
                   layout
                   className="bg-gray-800/60 hover:bg-gray-700/90 rounded-2xl p-5 flex items-center gap-5 border border-white/10 transition-all group"
@@ -203,12 +204,12 @@ export default function ModsListModal({ isOpen, onClose, profile }: Props) {
                     <Trash2 size={22} />
                   </button>
                 </div>
-                </motion.div>
+                </MotionDiv>
               ))
             )}
           </div>
         </div>
-      </motion.div>
+      </MotionDiv>
     </>
   )
 }

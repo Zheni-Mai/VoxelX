@@ -1,5 +1,6 @@
 // src/main/preload.js
 import { contextBridge, ipcRenderer } from 'electron'
+import { Profile } from './types/profile'
 
 const allowedListenerChannels = [
   'launch-start',
@@ -29,7 +30,9 @@ const allowedListenerChannels = [
   'game-closed',
   'minecraft-instance-started',
   'minecraft-instance-closed',
-  
+  'webrtc:lan-broadcast',
+  'screenshot-copied',
+  'profile:update',
 ]
 
 const allowedSendChannels = [
@@ -45,6 +48,7 @@ const allowedSendChannels = [
   'open-log-window',
   'game-will-launch',    
   'game-closed',      
+  'profile:update',
 ]
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -111,6 +115,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setDefaultProfile: (data: any) => ipcRenderer.invoke('setDefaultProfile', data),
     getMinecraftVersions: () => ipcRenderer.invoke('getMinecraftVersions'),
     getFabricVersions: (gameVersion: string) => ipcRenderer.invoke('getFabricVersions', gameVersion),
+    getForgeVersions: (gameVersion: string) => ipcRenderer.invoke('getForgeVersions', gameVersion),
+    getQuiltVersions: (gameVersion: string) => ipcRenderer.invoke('getQuiltVersions', gameVersion),
+    getNeoForgeVersions: (gameVersion: string) => ipcRenderer.invoke('getNeoForgeVersions', gameVersion),
+    getLiteLoaderVersions: (gameVersion: string) => ipcRenderer.invoke('getLiteLoaderVersions', gameVersion),
+    getOptiFineVersions: (gameVersion: string) => ipcRenderer.invoke('getOptiFineVersions', gameVersion),
     selectGameDirectory: () => ipcRenderer.invoke('selectGameDirectory'),
     openGameDirectory: (path: string) => ipcRenderer.invoke('openGameDirectory', path),
     getModList: (gameDirectory: string) => ipcRenderer.invoke('profile:getModList', gameDirectory),
@@ -119,15 +128,76 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteProfile: (data: { appDataPath: string; profileName: string }) => ipcRenderer.invoke('profile:delete', data),
     getFolderSize: (dir: string) => ipcRenderer.invoke('profile:getFolderSize', dir),
     importPack: (filePath: string) => ipcRenderer.invoke('profile:import-pack', filePath),
-    searchModrinth: ( query: string, gameVersion?: string, loader?: 'fabric' | 'forge' | 'quilt' | 'all', limit?: number, offset?: number ) => ipcRenderer.invoke('modrinth:search', query, gameVersion, loader, limit, offset),
+    installModpack: (url: string, name?: string) => ipcRenderer.invoke('modrinth:install-modpack', url, name),
+    searchModrinth: (
+      query: string,
+      gameVersion?: string,
+      loader?: 'fabric' | 'forge' | 'quilt' | 'neoforge' | 'all',
+      limit?: number,
+      offset?: number,
+      projectType?: 'mod' | 'modpack' | 'resourcepack' | 'datapack' | 'shader'
+    ) => ipcRenderer.invoke(
+      'modrinth:search',
+      query,
+      gameVersion,
+      loader === 'all' ? undefined : loader,
+      limit,
+      offset,
+      projectType
+    ),
     getModrinthProject: (id: string) => ipcRenderer.invoke('modrinth:project', id),
-    downloadModrinthFile: (fileUrl: string,fileName: string,profilePath: string,metadata?: any) => ipcRenderer.invoke('modrinth:download-file', fileUrl, fileName, profilePath, metadata),
+    getWorldList: (gameDirectory: string) => 
+    ipcRenderer.invoke('profile:getWorldList', gameDirectory),
+    downloadModrinthFile: (
+      fileUrl: string,
+      fileName: string,
+      profilePath: string,
+      metadata?: any,
+      subFolder: 'mods' | 'shaderpacks' | 'resourcepacks' | 'datapacks' = 'mods',
+      worldName?: string 
+    ) => ipcRenderer.invoke(
+      'modrinth:download-file',
+      fileUrl,
+      fileName,
+      profilePath,
+      metadata,
+      subFolder,
+      worldName
+    ),
     exportProfile: (data: { gameDirectory: string; profileName: string }) => ipcRenderer.invoke('profile:export', data),
+    createTempWorldDatapackCopy: (worldName: string, filename: string) =>
+      ipcRenderer.invoke('profile:createTempWorldDatapackCopy', worldName, filename),
     addModsFromFolder: (data: { gameDirectory: string }) => ipcRenderer.invoke('profile:addModsFromFolder', data),
     recognizeMod: (data: { filePath: string }) => ipcRenderer.invoke('profile:recognizeMod', data),
     setSelectedProfile: (name: string) => ipcRenderer.invoke('profile:setSelected', name),
     getCurrentProfile: () => ipcRenderer.invoke('getCurrentProfile'),
-  },
+    updateProfile: (data: { name: string; updates: Partial<Profile> }) => 
+      ipcRenderer.invoke('profile:update', data),
+    getResourcePackList: (gameDirectory: string) => ipcRenderer.invoke('profile:getResourcePackList', gameDirectory),
+    toggleResourcePack: (data: { gameDirectory: string; filename: string; enable: boolean }) => 
+      ipcRenderer.invoke('profile:toggleResourcePack', data),
+    deleteResourcePack: (data: { gameDirectory: string; filename: string }) => 
+      ipcRenderer.invoke('profile:deleteResourcePack', data),
+    addResourcePacksFromFolder: (data: { gameDirectory: string }) => 
+      ipcRenderer.invoke('profile:addResourcePacksFromFolder', data),
+    getShaderPackList: (gameDirectory: string) => ipcRenderer.invoke('profile:getShaderPackList', gameDirectory),
+    toggleShaderPack: (data: { gameDirectory: string; filename: string; enable: boolean }) => 
+      ipcRenderer.invoke('profile:toggleShaderPack', data),
+    deleteShaderPack: (data: { gameDirectory: string; filename: string }) => 
+      ipcRenderer.invoke('profile:deleteShaderPack', data),
+    addShaderPacksFromFolder: (data: { gameDirectory: string }) => 
+      ipcRenderer.invoke('profile:addShaderPacksFromFolder', data),
+    getScreenshots: (gameDirectory: string) => ipcRenderer.invoke('profile:getScreenshots', gameDirectory),
+    deleteScreenshot: (fullPath: string) => ipcRenderer.invoke('profile:deleteScreenshot', fullPath),
+    openScreenshotsFolder: (gameDirectory: string) => ipcRenderer.invoke('profile:openScreenshotsFolder', gameDirectory),
+    getDataPackList: (gameDirectory: string) => ipcRenderer.invoke('profile:getDataPackList', gameDirectory),
+    toggleDataPack: (data: { gameDirectory: string; filename: string; enable: boolean }) => 
+      ipcRenderer.invoke('profile:toggleDataPack', data),
+    deleteDataPack: (data: { gameDirectory: string; filename: string }) => 
+      ipcRenderer.invoke('profile:deleteDataPack', data),
+    addDataPacksFromFolder: (data: { gameDirectory: string }) => 
+      ipcRenderer.invoke('profile:addDataPacksFromFolder', data),
+    },
 
     onToast: (callback: (toast: { id: number; title?: string; message: string; type: 'success' | 'error' | 'info' | 'warning' }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, toast: any) => callback(toast)
@@ -137,8 +207,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeToast: (id: number) => {
       ipcRenderer.send('hide-toast', id)
     },
+  
   getCustomSkinLoaderSkin: (data: { gameDir: string; username: string }) =>
     ipcRenderer.invoke('getCustomSkinLoaderSkin', data),
+  changeCape: (data: { username: string; filePath: string; gameDir: string }) =>
+    ipcRenderer.invoke('changeCape', data),
+  changeElytra: (data: { username: string; filePath: string; gameDir: string }) =>
+    ipcRenderer.invoke('changeElytra', data),
+  getLocalCapeBase64: (username: string) =>
+    ipcRenderer.invoke('getLocalCapeBase64', username),
+  getLocalElytraBase64: (username: string) =>
+    ipcRenderer.invoke('getLocalElytraBase64', username),
+
+  getCustomSkinLoaderCape: (data: { gameDir: string; username: string }) =>
+    ipcRenderer.invoke('getCustomSkinLoaderCape', data),
+  getCustomSkinLoaderElytra: (data: { gameDir: string; username: string }) =>
+    ipcRenderer.invoke('getCustomSkinLoaderElytra', data),
   elybyLogin: () => ipcRenderer.invoke('elyby-login'),
   elybyCallback: (code: string, state: string) => ipcRenderer.send('elyby-callback', code, state),
 
@@ -201,6 +285,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeAllListeners(channel: string) {
     ipcRenderer.removeAllListeners(channel)
   },
+  
   ipcRenderer: {
     invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
     send: (channel: string, ...args: any[]) => {

@@ -2,9 +2,10 @@
 export interface Profile {
   name: string
   version: string
-  loader: 'vanilla' | 'fabric' | 'forge' | 'quilt' | 'neoforge'
+  loader: 'vanilla' | 'fabric' | 'forge' | 'quilt' | 'neoforge' | 'liteloader' | 'optifine'
   gameDirectory: string
   loaderVersion?: string
+  optifine?: boolean | string
   installed: boolean
   isDefault?: boolean
   isSelected?: boolean
@@ -14,7 +15,7 @@ export interface Profile {
   jvmArgs?: string
   gameArgs?: string
   showLaunchLog?: boolean
-  javaVersion?: 8 | 11 | 17 | 21
+  javaVersion?: 8 | 11 | 17 | 21 | 25
   useAuthlibInjector?: boolean
   forceDedicatedGPU?: boolean | null
   enableFeatherUI?: boolean

@@ -2,6 +2,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Gamepad2, Zap, CheckCircle2, Download, ArrowDownToLine, RefreshCw, XCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { MotionDiv } from '../utils/motion'
 
 interface MinecraftInstance {
   id: string
@@ -88,21 +89,20 @@ export default function InstancesModal({ isOpen, onClose }: { isOpen: boolean; o
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <MotionDiv
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
           onClick={onClose}
         >
-          <motion.div
+          <MotionDiv
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={e => e.stopPropagation()}
-            className="bg-gray-900/95 backdrop-blur-2xl border border-cyan-500/30 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+            className="bg-black/70 backdrop-blur-2xl border border-cyan-500/30 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
           >
-            {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-cyan-500/20">
               <div className="flex items-center gap-3">
                 <Zap size={28} className="text-cyan-400" />
@@ -112,8 +112,6 @@ export default function InstancesModal({ isOpen, onClose }: { isOpen: boolean; o
                 <X size={20} className="text-gray-400" />
               </button>
             </div>
-
-            {/* Tabs */}
             <div className="flex">
               <button
                 onClick={() => setActiveTab('instances')}
@@ -136,8 +134,6 @@ export default function InstancesModal({ isOpen, onClose }: { isOpen: boolean; o
                 <ArrowDownToLine size={16} /> Cập Nhật
               </button>
             </div>
-
-            {/* Content */}
             <div className="p-8">
               {activeTab === 'instances' && (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -175,8 +171,6 @@ export default function InstancesModal({ isOpen, onClose }: { isOpen: boolean; o
                   )}
                 </div>
               )}
-
-              {/* === TAB UPDATE === */}
               {activeTab === 'updates' && (
                 <div className="flex flex-col items-center py-8">
                   {status === 'checking' && (
@@ -249,8 +243,8 @@ export default function InstancesModal({ isOpen, onClose }: { isOpen: boolean; o
                 </div>
               )}
             </div>
-          </motion.div>
-        </motion.div>
+          </MotionDiv>
+        </MotionDiv>
       )}
     </AnimatePresence>
   )

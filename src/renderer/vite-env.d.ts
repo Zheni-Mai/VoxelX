@@ -3,14 +3,26 @@
 
 import type { Account } from '../main/types/account'
 
-interface Profile {
+export interface Profile {
   name: string
   version: string
-  loader: 'vanilla' | 'fabric'
+  loader: 'vanilla' | 'fabric' | 'forge' | 'quilt' | 'neoforge' | 'liteloader' | 'optifine'
   gameDirectory: string
   loaderVersion?: string
+  optifine?: boolean | string
   installed: boolean
-  isDefault: boolean
+  isDefault?: boolean
+  isSelected?: boolean
+  icon?: string
+  resolution?: { width: number; height: number }
+  memory?: { min: string; max: string }
+  jvmArgs?: string
+  gameArgs?: string
+  showLaunchLog?: boolean
+  javaVersion?: 8 | 11 | 17 | 21 | 25
+  useAuthlibInjector?: boolean
+  forceDedicatedGPU?: boolean | null
+  enableFeatherUI?: boolean
 }
 
 interface ModrinthProject {
@@ -46,7 +58,6 @@ interface MinecraftInstance {
 declare global {
   interface Window {
     electronAPI: {
-      [x: string]: any
       versions: {
         node: () => string
         chrome: () => string
@@ -54,6 +65,7 @@ declare global {
       }
       ping: () => Promise<string>
       getAppVersion: () => Promise<string>
+      getSystemRam: () => Promise<{ total: number; free: number }>
       on: (channel: string, listener: (...args: any[]) => void) => () => void
       off: (channel: string, listener: (...args: any[]) => void) => void
       removeAllListeners: (channel: string) => void
@@ -64,6 +76,8 @@ declare global {
         close: () => void
         isMaximized: () => Promise<boolean>
       }
+
+      invoke: (channel: string, ...args: any[]) => Promise<any>
 
       toast: {
         success: (message: string, title?: string) => void
@@ -112,6 +126,11 @@ declare global {
         setDefaultProfile: (data: any) => Promise<any>
         getMinecraftVersions: () => Promise<any[]>
         getFabricVersions: (gameVersion: string) => Promise<string[]>
+        getForgeVersions: (gameVersion: string) => Promise<string[]>
+        getQuiltVersions: (gameVersion: string) => Promise<string[]>
+        getLiteLoaderVersions: (gameVersion: string) => Promise<string[]>
+        getNeoForgeVersions: (gameVersion: string) => Promise<string[]>
+        getOptiFineVersions: (gameVersion: string) => Promise<string[]>
         selectGameDirectory: () => Promise<string | null>
         openGameDirectory: (path: string) => Promise<boolean>
         getModList: (gameDirectory: string) => Promise<Array<{
@@ -123,9 +142,11 @@ declare global {
           iconUrl?: string | null
           version?: string
           projectId?: string | null
-          fileId?: string | null
-        }>>
-
+          fileId?: string | null}>>
+        updateProfile: (data: { 
+          name: string; 
+          updates: Partial<Profile> 
+        }) => Promise<{ success: boolean; message?: string }>,
         toggleMod: (data: { 
           gameDirectory: string
           filename: string
@@ -138,8 +159,16 @@ declare global {
         }) => Promise<boolean>
         deleteProfile: (data: { appDataPath: string; profileName: string }) => Promise<boolean>
         getFolderSize: (dir: string) => Promise<string>
-        searchModrinth: (query: string, gameVersion?: string, loader?: 'fabric' | 'forge' | 'quilt' | 'all', limit?: number, offset?: number) => Promise<{ hits: ModrinthProject[]; total_hits: number }>
+        searchModrinth: (
+          query: string,
+          gameVersion?: string,
+          loader?: string,
+          limit?: number,
+          offset?: number,
+          projectType?: 'mod' | 'modpack' | 'resourcepack' | 'datapack' | 'shader'
+        ) => Promise<{ hits: ModrinthProject[]; total_hits: number }>
         getModrinthProject: (id: string) => Promise<ModrinthProjectDetails | null>
+        getWorldList: (gameDirectory: string) => Promise<string[]>,
         downloadModrinthFile: (
           fileUrl: string,
           fileName: string,
@@ -152,16 +181,32 @@ declare global {
             version?: string
             projectId?: string
             fileId?: string
-          }
-        ) => Promise<boolean>
+          },
+          subFolder?: 'mods' | 'shaderpacks' | 'resourcepacks' | 'datapacks',
+          worldName?: string  // chỉ dùng khi cài datapack vào world cụ thể
+        ) => Promise<boolean>,
+        createTempWorldDatapackCopy: (worldName: string, filename: string) => Promise<string | null>,
         exportProfile: (data: { gameDirectory: string; profileName: string }) => Promise<{ success: boolean; filePath?: string; message?: string }>
         importPack: (filePath: string) => Promise<{ success: boolean; profile?: Profile; message?: string }>
+        installModpack: (
+          mrpackUrl: string,
+          suggestedName?: string
+        ) => Promise<{ success: boolean; profile?: Profile; message?: string }>
         addModsFromFolder: (data: { gameDirectory: string }) => Promise<{
           success: boolean
           copied?: string[]
           failed?: string[]
           message: string
         }>
+
+        getScreenshots: (gameDirectory: string) => Promise<Array<{
+          filename: string
+          title: string
+          dataUrl: string
+          fullPath: string
+        }>>
+        openScreenshotsFolder: (gameDirectory: string) => Promise<boolean>
+        deleteScreenshot: (fullPath: string) => Promise<boolean>
 
         recognizeMod: (data: { filePath: string }) => Promise<{
           title: string
@@ -172,6 +217,55 @@ declare global {
           projectId: string | null
           fileId: string | null
         } | null>
+
+        getResourcePackList: (gameDirectory: string) => Promise<Array<{
+          filename: string
+          enabled: boolean
+          title: string
+          iconUrl: string | null
+        }>>
+        toggleResourcePack: (data: { gameDirectory: string; filename: string; enable: boolean }) => Promise<boolean>
+        deleteResourcePack: (data: { gameDirectory: string; filename: string }) => Promise<boolean>
+        addResourcePacksFromFolder: (data: { gameDirectory: string }) => Promise<{
+          success: boolean
+          copied?: string[]
+          failed?: string[]
+          message: string
+        }>
+        
+        getShaderPackList: (gameDirectory: string) => Promise<Array<{
+          filename: string
+          enabled: boolean
+          title: string
+          iconUrl: string | null
+        }>>
+        toggleShaderPack: (data: { gameDirectory: string; filename: string; enable: boolean }) => Promise<boolean>
+        deleteShaderPack: (data: { gameDirectory: string; filename: string }) => Promise<boolean>
+        addShaderPacksFromFolder: (data: { gameDirectory: string }) => Promise<{
+          success: boolean
+          copied?: string[]
+          failed?: string[]
+          message: string
+        }>
+        
+        readdir: (dir: string) => Promise<string[]>
+        unlink: (filePath: string) => Promise<boolean>
+
+        // Data Packs
+        getDataPackList: (gameDirectory: string) => Promise<Array<{
+          filename: string
+          enabled: boolean
+          title: string
+          iconUrl: string | null
+        }>>
+        toggleDataPack: (data: { gameDirectory: string; filename: string; enable: boolean }) => Promise<boolean>
+        deleteDataPack: (data: { gameDirectory: string; filename: string }) => Promise<boolean>
+        addDataPacksFromFolder: (data: { gameDirectory: string }) => Promise<{
+          success: boolean
+          copied?: string[]
+          failed?: string[]
+          message: string
+        }>
       }
 
       accountAPI: {
@@ -200,7 +294,37 @@ declare global {
         readFile: (filePath: string) => Promise<string>
         writeFile: (dir: string, filename: string, content: string) => Promise<void>
         ensureDir: (dir: string) => Promise<void>
+        
       }
+
+      java: {
+        ensureJava: (version: 8 | 11 | 17 | 21) => Promise<boolean>,
+        listAvailable: () => Promise<Array<{ version: number; exists: boolean }>>
+      },
+
+
+      getLocalCapeBase64: (username: string) => Promise<string | null>,
+      getLocalElytraBase64: (username: string) => Promise<string | null>,
+
+      getCustomSkinLoaderSkin: (data: { gameDir: string; username: string }) => Promise<string | null>,
+      getCustomSkinLoaderCape: (data: { gameDir: string; username: string }) => Promise<string | null>,
+      getCustomSkinLoaderElytra: (data: { gameDir: string; username: string }) => Promise<string | null>,
+
+      getDrives: () => Promise<any[]>, 
+
+      uploadToMclogs: (content: string) => Promise<string | null>,
+
+      changeCape: (data: {
+        username: string
+        filePath: string
+        gameDir: string
+      }) => Promise<boolean>
+
+      changeElytra: (data: {
+        username: string
+        filePath: string
+        gameDir: string
+      }) => Promise<boolean>
 
       selectSkinFile: () => Promise<string | null>
       changeSkin: (data: {
@@ -220,8 +344,6 @@ declare global {
         off: (channel: string, listener: (...args: any[]) => void) => void
         removeAllListeners: (channel: string) => void
       }
-
-      
     }
 
     toast: {

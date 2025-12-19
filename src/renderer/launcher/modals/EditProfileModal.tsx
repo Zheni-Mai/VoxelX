@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { X, Image, FolderOpen, Trash2, Download, AlertCircle, Save, Loader2, HardDrive } from 'lucide-react'
 import type { Profile } from '../../../main/types/profile'
+import { MotionDiv } from '../../utils/motion'
 
 interface EditProfileModalProps {
   isOpen: boolean
@@ -85,14 +86,14 @@ export default function EditProfileModal({ isOpen, onClose, profile, appDataPath
 
   return (
     <>
-      <motion.div
+      <MotionDiv
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
         onClick={onClose}
       />
-      <motion.div
+      <MotionDiv
         initial={{ scale: 0.92, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.92, opacity: 0 }}
@@ -100,7 +101,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, appDataPath
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-gray-900/95 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-2xl w-full max-w-6xl h-full max-h-[92vh] flex flex-col overflow-hidden">
+        <div className="bg-black/70 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-2xl w-full max-w-6xl h-full max-h-[92vh] flex flex-col overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b border-white/10">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
@@ -331,7 +332,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, appDataPath
             </div>
           </div>
         </div>
-      </motion.div>
+      </MotionDiv>
     </>
   )
 }

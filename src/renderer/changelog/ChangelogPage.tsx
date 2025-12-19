@@ -1,10 +1,13 @@
 // src/renderer/changelog/ChangelogPage.tsx
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronUp, Copy, Server, Globe, Clock, X, Loader2 } from 'lucide-react'
+import { MotionDiv } from '../utils/motion'
 import { useState, useEffect } from 'react'
 import { Account } from '../../main/types/account'
 import PlayCard from '../components/PlayCard'
-import ModsListModal from '../launcher/modals/ModsListModal'
+import ChangelogHistoryModal from './modal/ChangelogHistoryModal'
+import LatestVersionCard from './card/LatestVersionCard'
+import ServicesCarouselCard from '../ads/ServicesCarouselCard'
 
 interface ChangelogEntry {
   version: string
@@ -17,11 +20,23 @@ interface ChangelogEntry {
 interface Profile {
   name: string
   version: string
-  loader: 'vanilla' | 'fabric'
+  loader: 'vanilla' | 'fabric' | 'forge' | 'quilt' | 'neoforge' | 'liteloader' | 'optifine'
   gameDirectory: string
   loaderVersion?: string
+  optifine?: boolean | string
   installed: boolean
-  isDefault: boolean
+  isDefault?: boolean
+  isSelected?: boolean
+  icon?: string
+  resolution?: { width: number; height: number }
+  memory?: { min: string; max: string }
+  jvmArgs?: string
+  gameArgs?: string
+  showLaunchLog?: boolean
+  javaVersion?: 8 | 11 | 17 | 21 | 25
+  useAuthlibInjector?: boolean
+  forceDedicatedGPU?: boolean | null
+  enableFeatherUI?: boolean
 }
 
 interface ServerInfo {
@@ -101,6 +116,7 @@ useEffect(() => {
         const serverList = [
           'aemine.vn',
           'sgp.kingmc.vn',
+          'shibamc.online',
           'play.cubecraft.net',
           'play.mineahihi.net',
           "mp.mc-complex.com",
@@ -156,172 +172,44 @@ useEffect(() => {
     <div className="relative w-full min-h-screen text-white overflow-hidden">
       {servers.length > 0 && <ServerTicker servers={servers} />}
 
-      <main className="pt-20 px-10 pb-32">
-        <div className="max-w-7xl mx-auto space-y-20">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-12 items-start">
-            <div className="xl:col-span-2">
-              {latestLog ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 60 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className="h-full"
-                >
-                  <div className="relative bg-white/6 backdrop-blur-3xl rounded-3xl border border-white/20 shadow-2xl overflow-hidden h-full p-10 lg:p-14">
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-600/15 via-purple-600/15 to-pink-600/15 rounded-3xl" />
-                    <div className="relative space-y-10">
-                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
-                        <div>
-                          <p className="text-sm uppercase tracking-widest text-cyan-300 font-bold opacity-90">
-                            Phiên bản mới nhất
-                          </p>
-                          <h2 className="text-6xl lg:text-7xl font-black text-white mt-3 leading-none">
-                            {latestLog.version}
-                          </h2>
-                          <p className="text-xl lg:text-2xl text-gray-300 mt-3 font-medium">
-                            {latestLog.date}
-                          </p>
-                        </div>
-                        <div className="flex-shrink-0">
-                          <span className={`px-8 py-4 rounded-full text-white font-bold text-2xl shadow-xl whitespace-nowrap
-                            ${latestLog.type === 'release'
-                              ? 'bg-gradient-to-r from-emerald-500 to-cyan-500'
-                              : 'bg-gradient-to-r from-purple-500 to-pink-500'
-                            }`}>
-                            {latestLog.type === 'release' ? 'Bản chính thức' : 'Snapshot'}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-lg lg:text-xl text-gray-100 leading-relaxed max-w-4xl">
-                        {latestLog.description || 'Cập nhật mới dành cho Minecraft'}
-                      </p>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 pt-4">
-                        <a
-                          href={latestLog.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-3 px-8 py-5 bg-white/10 hover:bg-white/20 rounded-2xl backdrop-blur-lg transition-all text-lg font-bold border border-white/20 hover:border-cyan-400 shadow-lg group"
-                        >
-                          <Globe size={28} className="group-hover:scale-110 transition" />
-                          Xem chi tiết trên Minecraft.net
-                        </a>
+      <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 pointer-events-none">
+        <div className="pointer-events-auto">
+          <PlayCard 
+            currentAccount={currentAccount} 
+            skinVersion={skinVersion} 
+          />
+        </div>
+      </div>
 
-                        <button
-                          onClick={() => setIsDropupOpen(true)}
-                          className="inline-flex items-center gap-3 px-8 py-5 bg-white/10 hover:bg-white/20 rounded-2xl backdrop-blur-sm transition-all group shadow-lg border border-white/20 hover:border-cyan-400"
-                        >
-                          <ChevronUp size={32} className="text-cyan-400 group-hover:scale-110 transition" />
-                          <span className="font-medium text-gray-200">Xem lịch sử cập nhật</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ) : (
-                <div className="bg-white/6 backdrop-blur-3xl rounded-3xl border border-white/10 p-10 lg:p-14 animate-pulse space-y-8">
-                  <div className="h-12 bg-white/10 rounded-2xl w-64" />
-                  <div className="h-20 lg:h-28 bg-white/15 rounded-2xl w-96" />
-                  <div className="h-6 bg-white/10 rounded-full w-48" />
-                  <div className="space-y-4">
-                    <div className="h-5 bg-white/10 rounded w-full" />
-                    <div className="h-5 bg-white/10 rounded w-11/12" />
-                    <div className="h-5 bg-white/10 rounded w-10/12" />
-                  </div>
-                  <div className="flex gap-6 pt-6">
-                    <div className="h-14 bg-white/10 rounded-2xl w-64" />
-                    <div className="h-14 bg-white/10 rounded-2xl w-56" />
-                  </div>
-                </div>
-              )}
+      <main className="pt-20 px-10 pb-32">
+        <div className="mx-auto max-w-full">
+          <div className="pr-8 lg:pr-12 xl:pr-66 2xl:pr-112">
+            <div className="max-w-4xl">
+              <LatestVersionCard
+                latestLog={latestLog}
+                onOpenHistory={() => setIsDropupOpen(true)}
+                isLoading={changelogs.length === 0}
+              />
             </div>
-            <div className="xl:col-span-1">
-              <PlayCard 
-                currentAccount={currentAccount} 
-                skinVersion={skinVersion} 
+
+            <div className="max-w-4xl mt-4">
+              <ServicesCarouselCard
               />
             </div>
           </div>
-
         </div>
       </main>
 
-      <AnimatePresence>
-        {isDropupOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsDropupOpen(false)}
-              className="fixed inset-0 backdrop-blur-sm z-50"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", damping: 30, stiffness: 400 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                className="bg-gray-900/95 backdrop-blur-3xl rounded-3xl border border-cyan-500/40 shadow-2xl 
-                          w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="relative flex items-center justify-center px-8 pt-6 pb-4 flex-shrink-0">
-                  <div className="absolute left-1/2 -translate-x-1/2 top-3 w-12 h-1.5 bg-white/30 rounded-full md:hidden" />
-                  
-                  <h3 className="text-3xl font-black text-cyan-400">Lịch sử cập nhật</h3>
-                  
-                  <button
-                    onClick={() => setIsDropupOpen(false)}
-                    className="absolute top-6 right-6 p-3 hover:bg-white/10 rounded-2xl transition group"
-                    aria-label="Đóng"
-                  >
-                    <X size={36} className="text-gray-400 group-hover:text-white transition" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-4">
-                  {changelogs.map((log, index) => (
-                    <motion.a
-                      key={log.version}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.03 }}
-                      href={log.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block p-6 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 
-                                hover:border-cyan-400/60 transition-all group"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-2xl font-bold text-white group-hover:text-cyan-300 transition">
-                          {log.version}
-                        </span>
-                        <span
-                          className={`px-5 py-2 text-sm font-bold rounded-full ${
-                            log.type === 'release'
-                              ? 'bg-emerald-500/20 text-emerald-300'
-                              : 'bg-purple-500/20 text-purple-300'
-                          }`}
-                        >
-                          {log.type === 'release' ? 'Release' : 'Snapshot'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500 mb-2">{log.date}</p>
-                      <p className="text-gray-300 leading-relaxed">{log.description}</p>
-                    </motion.a>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <ChangelogHistoryModal
+        isOpen={isDropupOpen}
+        onClose={() => setIsDropupOpen(false)}
+        changelogs={changelogs}
+      />
 
     </div>
   )
 }
+
 
 const ServerTicker = ({ servers }: { servers: ServerInfo[] }) => {
   const [hovered] = useState(false)

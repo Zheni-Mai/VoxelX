@@ -1,17 +1,22 @@
 // src/renderer/profiles/ProfilesPage.tsx
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, FolderOpen, Archive, ArrowDownLeft, MoreVertical, Edit2, Trash2 } from 'lucide-react'
+import { Plus, X, FolderOpen, Archive, Trash2, Box } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import path from 'path'
+import { MotionDiv } from '../utils/motion'
 
+import Forge from '@/assets/loader/forge.png'
+import Quilt from '@/assets/loader/quilt.png'
+import NeoForge from '@/assets/loader/neoforge.png'
 import Fabric from '@/assets/loader/fabric.png'
 import Vanilla from '@/assets/loader/vanilla.png'
+import Optifine from '@/assets/loader/optifine.png'
+import LiteLoader from '@/assets/loader/liteloader.png'
 import ModrinthLogo from '@/assets/loader/modrinth.svg'
-import ModrinthBrowserModal from './modals/ModrinthBrowserModal'
 import CreateProfileModal from './modals/CreateProfileModal'
 import ImportModpackModal from './modals/ImportModpackModal'
 import EditProfileModal from './modals/EditProfileModal'
 import type { Profile } from '../../main/types/profile'
+import UniversalBrowserModal from './modals/ResourceBrowserModal'
 
 type MinecraftVersion = {
   id: string
@@ -41,11 +46,31 @@ export default function ProfilesPage() {
   const [fabricVersions, setFabricVersions] = useState<string[]>([])
   const [loadingVersions, setLoadingVersions] = useState(false)
   const [creatingProfile, setCreatingProfile] = useState(false)
+  const [universalOpen, setUniversalOpen] = useState(false)
 
   const [fabOpen, setFabOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [modrinthOpen, setModrinthOpen] = useState(false)
+  const LOADER_DISPLAY: Record<Profile['loader'], string> = {
+    vanilla: 'Vanilla',
+    fabric: 'Fabric',
+    quilt: 'Quilt',
+    forge: 'Forge',
+    neoforge: 'NeoForge',
+    liteloader: 'LiteLoader',
+    optifine: 'Optifine',
+  }
+
+  const LOADER_COLOR: Record<Profile['loader'], string> = {
+    vanilla: 'text-cyan-400',
+    fabric: 'text-purple-400',
+    quilt: 'text-pink-400',
+    forge: 'text-orange-400',
+    neoforge: 'text-lime-400',
+    liteloader: 'text-gray-400',
+    optifine: 'text-red-400',
+  }
 
   const importProfile = async () => {
     const result = await window.electronAPI.dialog.showOpenDialog({
@@ -70,8 +95,10 @@ export default function ProfilesPage() {
       }
 
       if (res.success && res.profile) {
-        const updated = await window.electronAPI.profileAPI.listProfiles(appDataPath)
+        const path = await window.electronAPI.profileAPI.getAppDataPath()
+        const updated = await window.electronAPI.profileAPI.listProfiles(path)
         setProfiles(updated)
+
         window.toast.success(`Đã nhập thành công!\n${res.profile.name}`, 'Thành công')
       } else {
         window.toast.error('Nhập thất bại!\n' + (res.message || 'Không rõ lỗi'), 'Lỗi')
@@ -80,6 +107,32 @@ export default function ProfilesPage() {
       window.toast.error('Lỗi: ' + (err?.message || 'Không thể kết nối đến main process'), 'Lỗi')
     }
   }
+
+  useEffect(() => {
+    const handleProfilesUpdated = async () => {
+      if (!appDataPath) {
+        try {
+          const path = await window.electronAPI.profileAPI.getAppDataPath()
+          setAppDataPath(path)
+          const list = await window.electronAPI.profileAPI.listProfiles(path)
+          setProfiles(list)
+        } catch (err) {
+          console.error('Lỗi reload profiles sau update:', err)
+        }
+      } else {
+        try {
+          const list = await window.electronAPI.profileAPI.listProfiles(appDataPath)
+          setProfiles(list)
+        } catch (err) {
+          console.error('Lỗi reload profiles:', err)
+        }
+      }
+    }
+    window.electronAPI.on('profiles-updated', handleProfilesUpdated)
+    return () => {
+      window.electronAPI.off('profiles-updated', handleProfilesUpdated)
+    }
+  }, [appDataPath])
 
   useEffect(() => {
     const init = async () => {
@@ -194,7 +247,7 @@ export default function ProfilesPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {profiles.map((p) => (
-                <motion.div
+                <MotionDiv
                   key={p.name}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -214,7 +267,19 @@ export default function ProfilesPage() {
                   <div className="p-5 flex items-start gap-4">
                     <div className="flex-shrink-0 relative">
                       <div className="w-14 h-14 rounded-xl border-2 border-white/20 bg-black/30 flex items-center justify-center">
-                        <img src={p.loader === 'vanilla' ? Vanilla : Fabric} alt={p.loader} className="w-10 h-10 object-contain" />
+                        <img 
+                          src={
+                            p.loader === 'vanilla' ? Vanilla :
+                            p.loader === 'fabric' ? Fabric :
+                            p.loader === 'quilt' ? Quilt :
+                            p.loader === 'forge' ? Forge :
+                            p.loader === 'liteloader' ? LiteLoader :
+                            p.loader === 'optifine' ? Optifine :
+                            NeoForge
+                          } 
+                          alt={p.loader} 
+                          className="w-10 h-10 object-contain" 
+                        />
                       </div>
                       <button
                           onClick={async () => {
@@ -261,8 +326,8 @@ export default function ProfilesPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-gray-400">Loader:</span>
-                          <span className={p.loader === 'vanilla' ? 'text-cyan-400' : 'text-purple-400'}>
-                            {p.loader === 'vanilla' ? 'Vanilla' : 'Fabric'}
+                          <span className={LOADER_COLOR[p.loader] || 'text-gray-400'}>
+                            {LOADER_DISPLAY[p.loader] || p.loader}
                             {p.loaderVersion && <span className="text-gray-500 text-xs ml-1">v{p.loaderVersion}</span>}
                           </span>
                         </div>
@@ -290,7 +355,7 @@ export default function ProfilesPage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-cyan-500/10 to-transparent" />
                     </div>
                   )}
-                </motion.div>
+                </MotionDiv>
               ))}
           </div>
         )}
@@ -305,28 +370,6 @@ export default function ProfilesPage() {
             {fabOpen && (
               <div className="absolute bottom-24 right-2 flex flex-col items-center gap-4">
                 <div className="mb-2 text-xs text-gray-300 font-medium">Tạo mới</div>
-                <div className="relative group">
-                  <motion.button
-                    initial={{ opacity: 0, y: 20, scale: 0.6 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 20, scale: 0.6 }}
-                    transition={{ delay: 0.15 }}
-                    whileHover={{ scale: 1.15 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setModrinthOpen(true)
-                    }}
-                    className="w-16 h-16 bg-gradient-to-br to-emerald-600 rounded-full shadow-2xl flex items-center justify-center border-2 border-white/20 backdrop-blur-sm"
-                    aria-label="Mở Modrinth Browser"
-                  >
-                    <img src={ModrinthLogo} alt="Modrinth" className="w-full h-full object-cover" />
-                  </motion.button>
-                  <span className="absolute right-full top-1/2 -translate-y-1/2 mr-3 whitespace-nowrap bg-black/90 text-white text-sm font-medium px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 backdrop-blur-sm border border-white/10 shadow-xl">
-                    Modrinth Browser
-                    <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-l-8 border-l-black/90 border-y-8 border-y-transparent" />
-                  </span>
-                </div>
                 <div className="relative group">
                   <motion.button
                     initial={{ opacity: 0, y: 20, scale: 0.6 }}
@@ -349,6 +392,25 @@ export default function ProfilesPage() {
                     Nhập Profile / Modpack (.vxpacks, .mrpack, .zip)
                     <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-l-8 border-l-black/90 border-y-8 border-y-transparent" />
                   </span>
+                </div>
+                <div className="relative group">
+                  <motion.button
+                    initial={{ opacity: 0, y: 20, scale: 0.6 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 20, scale: 0.6 }}
+                    transition={{ delay: 0.1 }}
+                    whileHover={{ scale: 1.15 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setUniversalOpen(true)
+                    }}
+                    className="w-16 h-16 rounded-full shadow-2xl flex items-center justify-center border-2 border-white/20 backdrop-blur-sm"
+                    aria-label="Duyệt tất cả nội dung Modrinth"
+                  >
+                    <img src={ModrinthLogo} alt="Modrinth" className="w-full h-full object-cover" />
+                    <Box size={32} className="text-white drop-shadow-lg" />
+                  </motion.button>  
                 </div>
                 <div className="relative group">
                   <motion.button
@@ -383,13 +445,13 @@ export default function ProfilesPage() {
             className="relative w-20 h-20 bg-gradient-to-br from-cyan-500 to-emerald-500 rounded-full shadow-2xl flex items-center justify-center border-4 border-white/30 backdrop-blur-md"
             aria-label="Mở menu tạo profile"
           >
-            <motion.div
+            <MotionDiv
               animate={{ rotate: fabOpen ? 135 : 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
             >
               <Plus size={40} className="text-white drop-shadow-lg" />
-            </motion.div>
-            <motion.div
+            </MotionDiv>
+            <MotionDiv
               className="absolute inset-0 rounded-full bg-white/20"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: fabOpen ? 1.4 : 0.8, opacity: fabOpen ? 0.4 : 0 }}
@@ -401,17 +463,14 @@ export default function ProfilesPage() {
 
       {createOpen && ( <CreateProfileModal isOpen={createOpen} onClose={() => setCreateOpen(false)} onCreate={async () => { try { const updatedProfiles = await window.electronAPI.profileAPI.listProfiles(appDataPath); setProfiles(updatedProfiles) } catch (err) { console.error('Lỗi reload profiles sau khi tạo:', err)}}}/>)}
       {importOpen && <ImportModpackModal isOpen={importOpen} onClose={() => setImportOpen(false)} />}
-      {modrinthOpen && (<ModrinthBrowserModal isOpen={modrinthOpen} onClose={() => setModrinthOpen(false)} profiles={profiles} currentProfile={profiles.find(p => p.isDefault)?.name} />)}
-      {editModalOpen && editingProfile && (
-        <EditProfileModal
-          isOpen={editModalOpen}
-          onClose={() => {
-            setEditModalOpen(false)
-            setEditingProfile(null)
-          }}
-          profile={editingProfile}
-          appDataPath={appDataPath}
-          onUpdate={setProfiles}
+      {editModalOpen && editingProfile && (<EditProfileModal isOpen={editModalOpen} onClose={() => { setEditModalOpen(false)
+      setEditingProfile(null)}}profile={editingProfile}appDataPath={appDataPath}onUpdate={setProfiles}/>)}
+      {universalOpen && (
+        <UniversalBrowserModal
+          isOpen={universalOpen}
+          onClose={() => setUniversalOpen(false)}
+          profiles={profiles}
+          currentProfile={profiles.find(p => p.isDefault)?.name}
         />
       )}
     </div>

@@ -1,7 +1,7 @@
 // src/main/launcher/vanilla.ts
 import fs from 'fs/promises'
 import path from 'path'
-import { fileExists } from './utils.js'
+import { fileExists } from '../utils.js'
 
 export async function installVanillaVersion(
   id: string,
@@ -49,6 +49,7 @@ export async function ensureVanillaVersion(
   if (await fileExists(jsonPath) && await fileExists(jarPath)) {
     return JSON.parse(await fs.readFile(jsonPath, 'utf-8'))
   }
+  
   log(`Thiếu vanilla ${id}, đang tự động cài đặt...`)
   return await installVanillaVersion(id, gameDir, signal, log, downloadFile)
 }

@@ -1,4 +1,5 @@
 // src/renderer/components/Player3D.tsx
+
 import { useRef, useEffect, useState } from 'react'
 import { ReactSkinview3d } from 'react-skinview3d'
 import type { SkinViewer } from 'skinview3d'
@@ -32,50 +33,66 @@ export default function Player3D({
   const finalHeight = height * scale
 
   useEffect(() => {
-    const loadSkin = async () => {
+    const loadTextures = async () => {
       if (!username) {
         setSkinUrl(`https://minotar.net/skin/${uuid}`)
         setCapeUrl(null)
         return
       }
+
+      let loadedSkin: string | null = null
+      let loadedCape: string | null = null
+
+      try {
+        const localSkin = await window.electronAPI.getLocalSkinBase64(username)
+        if (localSkin) loadedSkin = localSkin
+
+        const localCape = await window.electronAPI.getLocalCapeBase64(username)
+        if (localCape) loadedCape = localCape
+
+        if (loadedSkin || loadedCape) {
+          setSkinUrl(loadedSkin || `https://minotar.net/skin/${username}`)
+          setCapeUrl(loadedCape)
+          return
+        }
+      } catch (err) {}
+
       try {
         const currentProfile = await window.electronAPI.profileAPI.getCurrentProfile()
         if (currentProfile?.gameDirectory) {
-          const cslSkin = await window.electronAPI.getCustomSkinLoaderSkin({
-            gameDir: currentProfile.gameDirectory,
-            username
-          })
-          if (cslSkin) {
-            setSkinUrl(cslSkin)
-            setCapeUrl(null)
+          const gameDir = currentProfile.gameDirectory
+
+          const cslSkin = await window.electronAPI.getCustomSkinLoaderSkin({ gameDir, username })
+          if (cslSkin) loadedSkin = cslSkin
+
+          const cslCape = await window.electronAPI.getCustomSkinLoaderCape({ gameDir, username })
+          if (cslCape) loadedCape = cslCape
+
+          if (loadedSkin || loadedCape) {
+            setSkinUrl(loadedSkin || `https://minotar.net/skin/${username}`)
+            setCapeUrl(loadedCape)
             return
           }
         }
       } catch (err) {
-        console.log('Không lấy được skin từ CustomSkinLoader')
+        console.log('Không lấy được texture từ CustomSkinLoader')
       }
-
-      try {
-        const base64 = await window.electronAPI.getLocalSkinBase64(username)
-        if (base64) {
-          setSkinUrl(base64)
-          setCapeUrl(null)
-          return
-        }
-      } catch (err) {}
 
       if (uuid.length === 32 || uuid.length === 36) {
         try {
           const res = await fetch(`http://skinsystem.ely.by/textures/${username}`)
           if (res.ok) {
             const data = await res.json()
-            if (data.SKIN?.url) {
-              setSkinUrl(data.SKIN.url)
-              setCapeUrl(data.CAPE?.url || null)
+            if (data.SKIN?.url) loadedSkin = data.SKIN.url
+            if (data.CAPE?.url) loadedCape = data.CAPE.url
+
+            if (loadedSkin || loadedCape) {
+              setSkinUrl(loadedSkin!)
+              setCapeUrl(loadedCape)
               return
             }
           }
-        } catch {}
+        } catch (err) {}
       }
 
       if (uuid.includes('-')) {
@@ -91,14 +108,14 @@ export default function Player3D({
               return
             }
           }
-        } catch {}
+        } catch (err) {}
       }
 
       setSkinUrl(`https://minotar.net/skin/${username || uuid}`)
       setCapeUrl(null)
     }
 
-    loadSkin()
+    loadTextures()
   }, [username, uuid])
 
   useEffect(() => {

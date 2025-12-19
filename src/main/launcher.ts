@@ -1,12 +1,16 @@
 // src/main/CustomMinecraftLauncher.ts
 import { app } from 'electron'
+import { watch } from 'fs'
 import path from 'path'
 import fs from 'fs/promises'
 import { spawn } from 'child_process'
 import { Account } from './types/account.js'
-import { installFabric } from './launcher/fabric.js'
-import { resolveFullVersion } from './launcher/fabric.js'
-import { ensureVanillaVersion } from './launcher/vanilla.js'
+import { installFabric } from './launcher/loader/fabric.js'
+import { resolveFullVersion } from './launcher/loader/fabric.js'
+import { ensureVanillaVersion } from './launcher/loader/vanilla.js'
+import { installQuilt } from './launcher/loader/quilt.js'
+import { installForge } from './launcher/loader/forge.js'
+import { installNeoForge } from './launcher/loader/neoforge.js'
 import { downloadLibraries, extractNatives, buildClasspath } from './launcher/libraries.js'
 import { downloadAssets } from './launcher/assets.js'
 import { ensureAuthlib } from './launcher/authlib.js'
@@ -18,11 +22,21 @@ import { Profile } from '../main/types/profile.js'
 import { setCurrentInstance, clearCurrentInstance } from './handlers/instances'
 import { injectCustomSkinLoader } from './launcher/customSkinLoader.js'
 import { injectFeatherUI } from './launcher/featherUI.js'
+import { refreshMicrosoftToken } from './handlers/account.js';
+import { installLiteLoader } from './launcher/loader/liteloader.js'
+import { installOptiFine } from './launcher/loader/optifine.js'
+import { AntiCheatReporter } from './antiCheatReporter.js'
+import { OnlineTimeReporter } from './onlineTimeReporter'
 
 export class CustomMinecraftLauncher {
   private mainWindow: Electron.BrowserWindow
   private abortController = new AbortController()
   private logWindow?: Electron.BrowserWindow | null = null
+  private screenshotWatcher: any = null
+  private currentJoinedServer: string | null = null;
+  private currentPlayerName: string = '';
+  private currentPlayerUuid: string = '';
+  private currentModsDir: string = '';
 
   constructor(mainWindow: Electron.BrowserWindow) {
     this.mainWindow = mainWindow
@@ -113,12 +127,102 @@ private send(channel: string, data: any) {
         const data = await fs.readFile(path.join(appDataPath, 'accounts.json'), 'utf-8')
         allAccounts = JSON.parse(data)
       } catch {}
+      let javaPath: string
+      if (profile.javaVersion && [8, 11, 17, 21].includes(profile.javaVersion)) {
+        const selectedVersion = profile.javaVersion as 8 | 11 | 17 | 21
+        const existing = await javaManager.findBundledJava(selectedVersion)
+        if (existing) {
+          javaPath = existing.path
+        } else {
+          javaPath = await javaManager.ensureJava(selectedVersion, (p, msg) => {
+            this.progress(5 + p * 0.75, msg)
+          })
+        }
+      } 
+      else {
+        const minor = parseFloat(profile.version.split('.')[1] || '0')
+        const requiredVersion = minor >= 20.5 ? 21 : minor >= 17 ? 17 : 8
+        javaPath = await javaManager.ensureJava(requiredVersion as 8 | 11 | 17 | 21, (p, msg) => {
+          this.progress(5 + p * 0.75, msg)
+        })
+
+        this.log(`Java ${requiredVersion} đã sẵn sàng!`, 'success')
+      }
+
       let versionId = profile.version
       if (profile.loader === 'fabric') {
         const loaderVer = profile.loaderVersion || 'latest'
         versionId = await installFabric(profile.version, loaderVer, gameDir, signal)
         this.log(`Fabric đã được cài → version: ${versionId}`, 'success')
+      } else if (profile.loader === 'quilt') {
+        const loaderVer = profile.loaderVersion || 'latest'
+        versionId = await installQuilt(profile.version, loaderVer, gameDir, signal)
+        this.log(`Quilt đã được cài → version: ${versionId}`, 'success')
+      } else if (profile.loader === 'forge') {
+        if (!profile.loaderVersion) throw new Error('Cần chỉ định loaderVersion cho Forge')
+
+        const forgeFullVersion = await installForge(
+          profile.version,
+          profile.loaderVersion,
+          gameDir,
+          javaPath,
+          signal
+        )
+        const versionsDir = path.join(gameDir, 'versions');
+        const versionFolders = await fs.readdir(versionsDir);
+        const forgeVersionId = versionFolders.find(f => f.includes('forge') && f.startsWith(profile.version));
+        if (!forgeVersionId) throw new Error('Không tìm thấy Forge version ID');
+        versionId = forgeVersionId;
+        this.log(`Forge đã được cài → full version: ${forgeFullVersion}`, 'success')
+      } else if (profile.loader === 'neoforge') {
+        if (!profile.loaderVersion) throw new Error('Cần chỉ định loaderVersion cho NeoForge')
+
+        versionId = await installNeoForge(
+          profile.loaderVersion,
+          gameDir,
+          javaPath,
+          signal
+        )
+
+        this.log(`NeoForge đã được cài → version: ${versionId}`, 'success')
+      } else if (profile.loader === 'liteloader') {
+        if (!profile.loaderVersion) throw new Error('Cần chỉ định loaderVersion cho LiteLoader')
+
+        versionId = await installLiteLoader(
+          profile.version,
+          profile.loaderVersion,
+          gameDir,
+          signal
+        )
+
+        this.log(`LiteLoader đã được cài → version: ${versionId}`, 'success')
+
+      } else if (profile.loader === 'vanilla' && (profile.optifine === true || typeof profile.optifine === 'string')) {
+        const optiVer = typeof profile.optifine === 'string' ? profile.optifine : 'latest'
+        versionId = await installOptiFine(  // ← Quan trọng: gán lại versionId từ OptiFine
+          profile.version,
+          optiVer,
+          gameDir,
+          javaPath,
+          signal,
+          undefined,
+          this.downloadFile.bind(this)
+        )
+        this.log(`OptiFine đã được bật → version: ${versionId}`, 'success')
+      } else if (profile.loader === 'optifine') {
+        if (!profile.loaderVersion) throw new Error('Cần chỉ định loaderVersion cho OptiFine')
+        versionId = await installOptiFine(
+          profile.version,
+          profile.loaderVersion,
+          gameDir,
+          javaPath,
+          signal,
+          undefined,
+          this.downloadFile.bind(this) 
+        )
+        this.log(`OptiFine đã được cài → version: ${versionId}`, 'success')
       }
+      
       const versionJson = await resolveFullVersion(
         versionId,
         gameDir,
@@ -128,6 +232,7 @@ private send(channel: string, data: any) {
         this.mergeVersionJson.bind(this),
         this.downloadFile.bind(this) 
       )
+
       const clientJar = path.join(gameDir, 'versions', versionId, `${versionId}.jar`)
       if (!await fileExists(clientJar)) {
         await this.downloadFile(versionJson.downloads.client.url, clientJar, 'Client JAR', signal)
@@ -147,7 +252,6 @@ private send(channel: string, data: any) {
         this.log.bind(this),
         this.progress.bind(this) 
       )
-
       
       const authlibPath = await ensureAuthlib(gameDir, this.downloadFile.bind(this), signal, this.log.bind(this))
 
@@ -157,36 +261,7 @@ private send(channel: string, data: any) {
         yggdrasilPort = await startYggdrasilServer()
       } catch (err) {
       }
-      let javaPath: string
-      if (profile.javaVersion && [8, 11, 17, 21].includes(profile.javaVersion)) {
-        const selectedVersion = profile.javaVersion as 8 | 11 | 17 | 21
-        const existing = await javaManager.findBundledJava(selectedVersion)
-        if (existing) {
-          javaPath = existing.path
-        } else {
-          javaPath = await javaManager.ensureJava(selectedVersion, (p, msg) => {
-            this.progress(5 + p * 0.75, msg)
-          })
-        }
-      } 
-      else {
-        const javaInfo = await javaManager.findBestJavaForVersion(profile.version)
-        this.log(`Tự động chọn Java ${javaInfo.version} (${javaInfo.source})`, 'info')
-
-        if (javaInfo.source === 'bundled') {
-          const bundled = await javaManager.findBundledJava(javaInfo.version as any)
-          if (bundled) {
-            javaPath = bundled.path
-          } else {
-            this.log(`Đang tải Java ${javaInfo.version} tự động...`, 'info')
-            javaPath = await javaManager.ensureJava(javaInfo.version as any, (p, msg) => {
-              this.progress(5 + p * 0.75, msg)
-            })
-          }
-        } else {
-          javaPath = javaInfo.path 
-        }
-      }
+      
       let cslPath: string | null = null
       if (profile.loader === 'fabric') {
         cslPath = await injectCustomSkinLoader(
@@ -210,7 +285,11 @@ private send(channel: string, data: any) {
           this.log.bind(this)
         )
       }
-      const classpath = await buildClasspath(versionJson, gameDir, clientJar)
+      let hasOptiFine = false
+      if (profile.loader === 'optifine' || (profile.loader === 'vanilla' && (profile.optifine === true || typeof profile.optifine === 'string'))) {
+        hasOptiFine = true
+      }
+      const classpath = await buildClasspath(versionJson, gameDir, clientJar, profile)
       
       const jvmArgs: string[] = [
         `-Djava.library.path=${path.join(gameDir, 'natives')}`,
@@ -244,9 +323,98 @@ private send(channel: string, data: any) {
         ...(profile.resolution ? ['--width', String(profile.resolution.width), '--height', String(profile.resolution.height)] : []),
         ...(profile.gameArgs || [])
       ]
-      if (account?.type === 'microsoft' && account.accessToken && account.uuid) {
-        gameArgs.push('--accessToken', account.accessToken, '--uuid', account.uuid.replace(/-/g, ''), '--userType', 'msa')
-      } 
+
+      let mainClass: string = versionJson.mainClass
+
+      const isOptiFine = profile.loader === 'optifine' || 
+        (profile.loader === 'vanilla' && (profile.optifine === true || typeof profile.optifine === 'string'))
+
+      if (isOptiFine) {
+        mainClass = 'net.minecraft.launchwrapper.Launch'
+        gameArgs.unshift('--tweakClass', 'optifine.OptiFineTweaker')
+        jvmArgs.push(
+          '-XX:+IgnoreUnrecognizedVMOptions',
+          '-XX:+UseConcMarkSweepGC',
+          '-XX:+CMSIncrementalMode',
+          '-XX:-UseAdaptiveSizePolicy',
+          '-XX:+DisableExplicitGC'
+        )
+
+        this.log('OptiFine: Đã thêm OptiFineTweaker và tối ưu JVM args', 'success')
+      } else {
+        mainClass = versionJson.mainClass
+      }
+
+      if (profile.loader === 'neoforge') {
+        const librariesDir = path.join(gameDir, 'libraries')
+        jvmArgs.push(
+          '--add-opens=java.base/java.lang.invoke=ALL-UNNAMED',
+          `-DlibraryDirectory=${librariesDir}`
+        )
+        let neoFormVersion = '20240808.144430';
+        if (versionJson.neoFormVersion) {
+          neoFormVersion = versionJson.neoFormVersion;
+        } else if (versionJson.arguments?.game?.includes('--fml.neoFormVersion')) {
+        }
+
+        gameArgs.push(
+          '--launchTarget', 'neoforgeclient',
+          '--fml.neoForgeVersion', profile.loaderVersion!,
+          '--fml.mcVersion', profile.version,
+          '--fml.neoFormVersion', neoFormVersion
+        )
+      }
+
+      if (profile.loader === 'forge') {
+        gameArgs.push(
+          '-Dforge.logging.console.level=DEBUG',
+          '-Dfml.earlyprogresswindow=false',
+          '-Dforge.forceNoStencil=true',
+          '-Dminecraft.launcher.brand=VoxelX',
+          '-Dforge.client=true',
+          '--launchTarget', 'forge_client'
+        );
+      }
+
+      if (account?.type === 'microsoft') {
+        let currentAccount = account;
+        let tokenValid = false;
+        try {
+          const res = await fetch('https://api.minecraftservices.com/minecraft/profile', {
+            headers: { Authorization: `Bearer ${currentAccount.accessToken}` },
+            signal
+          });
+          tokenValid = res.ok;
+        } catch (e) {
+        }
+
+        if (!tokenValid) {
+          //this.log('Token Microsoft đã hết hạn → đang tự động làm mới...', 'info');
+
+          try {
+            currentAccount = await refreshMicrosoftToken(account);
+            const appDataPath = await this.getAppDataPath();
+            const filePath = path.join(appDataPath, 'accounts.json');
+            let accounts: Account[] = [];
+            try {
+              const data = await fs.readFile(filePath, 'utf-8');
+              accounts = JSON.parse(data);
+            } catch {}
+            accounts = accounts.filter(a => a.id !== currentAccount.id);
+            accounts.unshift(currentAccount);
+            await fs.writeFile(filePath, JSON.stringify(accounts, null, 2));
+            this.mainWindow.webContents.send('account-refreshed', currentAccount);
+          } catch (err: any) {
+            throw new Error(`Không thể làm mới token Microsoft. Vui lòng đăng nhập lại.\nLỗi: ${err.message}`);
+          }
+        }
+
+        gameArgs.push(
+          '--accessToken', currentAccount.accessToken!,
+          '--uuid', currentAccount.uuid.replace(/-/g, ''),
+          '--userType', 'msa'
+        );
+      }
       else if (account?.type === 'elyby' && account.accessToken && account.uuid) {
         gameArgs.push(
           '--accessToken', account.accessToken,
@@ -263,24 +431,19 @@ private send(channel: string, data: any) {
           .digest('hex')
           .replace(/(\w{8})(\w{4})(\w{4})(\w{4})(\w{12})/, '$1-$2-$3-$4-$5')
         gameArgs.push(
-          '--username', playerName,
           '--uuid', offlineUuid.replace(/-/g, ''),
           '--accessToken', '0'
         )
-        if (useInjector) {
-          try {
-            yggdrasilPort = await startYggdrasilServer()
-            yggdrasilStarted = true
-          } catch (err) {}
-
-          jvmArgs.unshift(
-            `-javaagent:${authlibPath}=http://127.0.0.1:${yggdrasilPort}`,
-            `-Dauthlib.injector.yggdrasil.host=http://127.0.0.1:${yggdrasilPort}`,
-            `-Dauthlib.injector.noShowServerName=true`,
-            `-Dauthlib.injector.disableHttpd=true`
-          )
-        }
+        this.currentPlayerUuid = offlineUuid;
       }
+
+      if (account?.uuid) {
+        this.currentPlayerUuid = account.uuid;
+      }
+      this.currentPlayerName = playerName;
+      const modsDir = path.join(gameDir, 'mods');
+      this.currentModsDir = modsDir;
+      this.currentJoinedServer = null;
 
       this.progress(100, 'Khởi động JVM...')
       this.log('Khởi động Minecraft...', 'success')
@@ -354,12 +517,59 @@ private send(channel: string, data: any) {
       mc.unref()
       process.stdin.unref?.()
 
-      mc.stdout?.on('data', d => this.pipeLog(d.toString()))
+      this.startScreenshotWatcher(gameDir)
+      mc.stdout?.on('data', (data) => {
+        const line = data.toString()
+        this.pipeLog(line)
+
+        const joinMatch = line.match(/\[CHAT\] \[§.[^§]*§r\] §fBạn đã kết nối đến server §b(.+)§f!/)
+          || line.match(/Connecting to (.+), \d+/)
+          || line.match(/Connecting to (.+)/)
+
+        if (joinMatch) {
+          const serverIp = joinMatch[1].trim().toLowerCase()
+          this.currentJoinedServer = serverIp
+          this.log(`Phát hiện join server: ${serverIp}`, 'info')
+
+          if (AntiCheatReporter.isMonitoredServer(serverIp)) {
+            this.handleAntiCheatReport(
+              this.currentPlayerName,
+              this.currentPlayerUuid,
+              serverIp,
+              this.currentModsDir
+            )
+          }
+
+          OnlineTimeReporter.startTracking(
+            serverIp,
+            this.currentPlayerName,
+            this.currentPlayerUuid
+          )
+
+          OnlineTimeReporter.sendLauncherAuth(
+            this.currentPlayerName,
+            this.currentPlayerUuid,
+            serverIp
+          ).catch(() => {})
+        }
+
+        if (line.includes('Lost connection') || line.includes('Kicked') || line.includes('Disconnected')) {
+          this.currentJoinedServer = null
+          OnlineTimeReporter.stopTracking()
+        }
+      })
+
       mc.stderr?.on('data', d => this.pipeLog(d.toString(), '[ERR] '))
       mc.on('close', (code) => {
         if (yggdrasilStarted) stopYggdrasilServer()
         this.log(`Minecraft thoát (code: ${code})`, code === 0 ? 'info' : 'warn')
         clearCurrentInstance()
+        this.stopScreenshotWatcher()
+        OnlineTimeReporter.stopTracking()
+        this.currentJoinedServer = null
+        this.currentPlayerName = ''
+        this.currentPlayerUuid = ''
+        this.currentModsDir = ''
         const { ipcMain } = require('electron')
         ipcMain.emit('launch-closed', { sender: null }, { code })
         this.send('launch-closed', { code })
@@ -480,6 +690,98 @@ private send(channel: string, data: any) {
       return JSON.parse(d).lastUsername || ''
     } catch {
       return ''
+    }
+  }
+
+  private async handleAntiCheatReport(
+    playerName: string,
+    playerUuid: string,
+    serverIp: string,
+    modsDir: string
+  ) {
+    const bannedMods = await AntiCheatReporter.scanMods(modsDir)
+
+    if (bannedMods.length === 0) {
+      return
+    }
+
+    this.log(`Phát hiện ${bannedMods.length} mod cấm khi join server được giám sát: ${serverIp}`, 'warn')
+    this.log(`Mod cấm: ${bannedMods.join(', ')}`, 'warn')
+
+    const success = await AntiCheatReporter.reportToServer(
+      playerName,
+      playerUuid,
+      serverIp,
+      bannedMods
+    )
+
+    if (success) {
+      this.log('Đã gửi báo cáo anti-cheat thành công!', 'success')
+    } else {
+      this.log('Gửi báo cáo anti-cheat thất bại', 'error')
+    }
+  }
+
+  private async startScreenshotWatcher(gameDirectory: string) {
+    const screenshotsDir = path.join(gameDirectory, 'screenshots')
+    this.stopScreenshotWatcher()
+
+    try {
+      await fs.mkdir(screenshotsDir, { recursive: true })
+      console.log('[ScreenshotWatcher] Thư mục screenshots đã sẵn sàng:', screenshotsDir)
+    } catch (error) {
+      console.error('[ScreenshotWatcher] Không thể tạo thư mục screenshots:', (error as Error).message)
+      return
+    }
+
+    console.log('[ScreenshotWatcher] Bắt đầu theo dõi:', screenshotsDir)
+
+    try {
+      this.screenshotWatcher = watch(screenshotsDir, (eventType, filename) => {
+        if (!filename || eventType !== 'rename') return
+        if (!filename.toLowerCase().endsWith('.png')) return
+
+        const fullPath = path.join(screenshotsDir, filename)
+
+        setTimeout(async () => {
+          try {
+            const buffer = await fs.readFile(fullPath)
+            const { clipboard, nativeImage } = require('electron')
+            const image = nativeImage.createFromBuffer(buffer)
+            clipboard.writeImage(image)
+
+            console.log('[ScreenshotWatcher] Đã tự động copy ảnh vào clipboard:', filename)
+
+            this.send('show-toast', {
+              id: Date.now(),
+              message: `Đã copy ảnh: ${filename}`,
+              type: 'success'
+            })
+
+            this.send('screenshot-copied', { filename, fullPath })
+          } catch (readError) {
+            console.error('[ScreenshotWatcher] Lỗi copy ảnh:', (readError as Error).message)
+          }
+        }, 800)
+      })
+
+      this.screenshotWatcher.on('error', (error: NodeJS.ErrnoException) => {
+        console.error('[ScreenshotWatcher] Lỗi watcher:', error.message)
+        if (error.code === 'ENOENT') {
+          this.stopScreenshotWatcher()
+        }
+      })
+
+    } catch (watchError) {
+      console.error('[ScreenshotWatcher] Không thể bắt đầu watch:', (watchError as Error).message)
+    }
+  }
+
+  private stopScreenshotWatcher() {
+    if (this.screenshotWatcher) {
+      this.screenshotWatcher.close()
+      this.screenshotWatcher = null
+      console.log('[ScreenshotWatcher] Đã dừng theo dõi')
     }
   }
 

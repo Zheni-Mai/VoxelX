@@ -108,7 +108,7 @@ export async function startYggdrasilServer(): Promise<number> {
         res.end(
           JSON.stringify({
             meta: {
-              serverName: 'VoxelX Offline Server',
+              serverName: 'VoxelX',
               implementationName: 'voxelx-yggdrasil',
               implementationVersion: '1.0.0',
             },

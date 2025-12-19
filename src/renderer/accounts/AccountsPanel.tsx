@@ -7,6 +7,8 @@ import Player3D from '../components/Player3D'
 import PlayerHead from '../components/PlayerHead'
 import { ChevronDown, ExternalLink } from 'lucide-react'
 import { Account } from '../../main/types/account'
+import CustomizeModal from './CustomizeModal'
+import { MotionDiv } from '../utils/motion'
 
 interface Props {
   isOpen: boolean
@@ -20,7 +22,7 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
   const [showForm, setShowForm] = useState(false)
   const [nameInput, setNameInput] = useState('')
   const [skinVersion, setSkinVersion] = useState(0)
-
+  const [showCustomizeModal, setShowCustomizeModal] = useState(false)
   const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false)
   const [showElybyLogin, setShowElybyLogin] = useState(false)
   const [elybyUsername, setElybyUsername] = useState('')
@@ -213,23 +215,104 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
   }
 }
 
+  const handleChangeSkin = async () => {
+    if (!currentPlayer) return
+
+    const filePath = await window.electronAPI.selectSkinFile()
+    if (!filePath) return
+
+    const currentProfile = await window.electronAPI.profileAPI.getCurrentProfile()
+    if (!currentProfile?.gameDirectory) {
+      window.toast.error('Không tìm thấy profile đang chọn!')
+      return
+    }
+    const gameDir = currentProfile.gameDirectory
+
+    const success = await window.electronAPI.changeSkin({
+      username: currentPlayer.name,
+      filePath,
+      gameDir
+    })
+
+    if (success) {
+      window.toast.success(`Đã đổi skin cho ${currentPlayer.name}!`)
+      setSkinVersion(prev => prev + 1)
+    } else {
+      window.toast.error('Lỗi khi đổi skin!')
+    }
+  }
+
+  const handleChangeCape = async () => {
+    if (!currentPlayer) return
+
+    const filePath = await window.electronAPI.selectSkinFile() 
+    if (!filePath) return
+
+    const currentProfile = await window.electronAPI.profileAPI.getCurrentProfile()
+    if (!currentProfile?.gameDirectory) {
+      window.toast.error('Không tìm thấy profile đang chọn!')
+      return
+    }
+    const gameDir = currentProfile.gameDirectory
+
+    const success = await window.electronAPI.changeCape({
+      username: currentPlayer.name,
+      filePath,
+      gameDir
+    })
+
+    if (success) {
+      window.toast.success(`Đã đổi cape cho ${currentPlayer.name}!`)
+      setSkinVersion(prev => prev + 1)
+    } else {
+      window.toast.error('Lỗi khi đổi cape!')
+    }
+  }
+
+  const handleChangeElytra = async () => {
+    if (!currentPlayer) return
+
+    const filePath = await window.electronAPI.selectSkinFile()
+    if (!filePath) return
+
+    const currentProfile = await window.electronAPI.profileAPI.getCurrentProfile()
+    if (!currentProfile?.gameDirectory) {
+      window.toast.error('Không tìm thấy profile đang chọn!')
+      return
+    }
+    const gameDir = currentProfile.gameDirectory
+
+    const success = await window.electronAPI.changeElytra({
+      username: currentPlayer.name,
+      filePath,
+      gameDir
+    })
+
+    if (success) {
+      window.toast.success(`Đã đổi elytra cho ${currentPlayer.name}!`)
+      setSkinVersion(prev => prev + 1)
+    } else {
+      window.toast.error('Lỗi khi đổi elytra!')
+    }
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
             className="fixed inset-0 backdrop-blur-sm z-50"
           />
-          <motion.div
+          <MotionDiv
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-            className="fixed right-0 top-12 h-[calc(100vh-3rem)] w-full max-w-6xl bg-gray-900/95 backdrop-blur-2xl border border-white/20 rounded-3xl rounded-r-none overflow-hidden shadow-2xl z-50 flex"                  
+            className="fixed right-0 top-12 h-[calc(100vh-3rem)] w-full max-w-6xl bg-black/70 backdrop-blur-2xl border border-white/20 rounded-2xl rounded-r-none overflow-hidden shadow-2xl z-50 flex"                  
             style={{
                 borderTopLeftRadius: '0.5rem',
                 borderBottomLeftRadius: '0.5rem',
@@ -276,14 +359,13 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
                   </button>
                 <AnimatePresence>
                   {isAuthMenuOpen && (
-                    <motion.div
+                    <MotionDiv
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       className="absolute top-full left-0 right-0 mt-2 bg-gray-800/95 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-2xl z-50"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {/* Microsoft */}
                       <button
                         type="button"
                         onClick={async () => {
@@ -304,8 +386,6 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
                       </button>
 
                       <div className="h-px bg-white/10 mx-4" />
-
-                      {/* Ely.by */}
                       <button
                         type="button"
                         onClick={async () => {
@@ -330,8 +410,6 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
                       </button>
 
                       <div className="h-px bg-white/10 mx-4" />
-
-                      {/* Đăng ký */}
                       <button
                         type="button"
                         onClick={() => window.open('https://ely.by/register', '_blank')}
@@ -339,14 +417,14 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
                       >
                         <ExternalLink size={16} /> Đăng ký tài khoản Ely.by
                       </button>
-                    </motion.div>
+                    </MotionDiv>
                   )}
                 </AnimatePresence>
             </div>
               </div>
               <AnimatePresence>
                 {showForm && (
-                  <motion.div
+                  <MotionDiv
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="mx-4 p-4 bg-white/5 rounded-xl border border-white/10"
@@ -364,13 +442,13 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
                       <button onClick={createOffline} className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg">Tạo</button>
                       <button onClick={() => { setShowForm(false); setNameInput('') }} className="px-5 py-2 bg-white/10 hover:bg-white/20 rounded-lg">Hủy</button>
                     </div>
-                  </motion.div>
+                  </MotionDiv>
                 )}
               </AnimatePresence>
               <div className="flex-1 overflow-y-auto px-4 pb-4">
                 <AnimatePresence>
                   {accounts.map(acc => (
-                    <motion.div
+                    <MotionDiv
                       key={acc.id}
                       layout
                       initial={{ opacity: 0, x: -20 }}
@@ -418,7 +496,7 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
                           <Trash2 size={16} className="text-red-400" />
                         </button>
                       </button>
-                    </motion.div>
+                    </MotionDiv>
                   ))}
                 </AnimatePresence>
                 {accounts.length === 0 && (
@@ -428,14 +506,14 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
             </div>
             <AnimatePresence>
             {showElybyLogin && (
-                <motion.div
+                <MotionDiv
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center"
                 onClick={() => setShowElybyLogin(false)}
                 >
-                <motion.div
+                <MotionDiv
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.9, opacity: 0 }}
@@ -489,8 +567,8 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
                         Đăng ký ngay
                     </a>
                     </p>
-                </motion.div>
-                </motion.div>
+                </MotionDiv>
+                </MotionDiv>
             )}
             </AnimatePresence>
             <div className="flex-1 flex flex flex-col bg-gradient-to-b from-gray-900/50 to-transparent">
@@ -522,43 +600,22 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
-                    <button 
-                      onClick={async () => {
-                        if (!currentPlayer) return
-
-                        const filePath = await window.electronAPI.selectSkinFile()
-                        if (!filePath) return
-
-                        const currentProfile = await window.electronAPI.profileAPI.getCurrentProfile()
-                        if (!currentProfile?.gameDirectory) {
-                          window.toast.error('Không tìm thấy profile đang chọn!')
-                          return
-                        }
-                        const gameDir = currentProfile.gameDirectory
-
-                        const success = await window.electronAPI.changeSkin({
-                          username: currentPlayer.name,
-                          filePath,
-                          gameDir
-                        })
-
-                        if (success) {
-                          window.toast.success(`Đã đổi skin cho ${currentPlayer.name}!`)
-                          setSkinVersion(prev => prev + 1)
-                        } else {
-                          window.toast.error('Lỗi khi đổi skin!')
-                        }
-                      }}
-                      disabled={!currentPlayer}
-                      className="py-4 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl backdrop-blur transition-all hover:scale-105 flex flex-col items-center gap-2 group"
-                    >
-                      <Upload size={28} className="text-cyan-400 group-hover:text-white" />
-                      <span className="font-medium">Đổi Skin</span>
-                    </button>
-                    <button className="py-4 bg-white/10 hover:bg-white/20 rounded-2xl backdrop-blur transition-all hover:scale-105 flex flex-col items-center gap-2 group">
-                        <Settings size={28} className="text-purple-400 group-hover:text-white" />
-                        <span className="font-medium">Tùy chỉnh</span>
-                    </button>
+                  <button 
+                    onClick={handleChangeSkin}
+                    disabled={!currentPlayer}
+                    className="py-4 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl backdrop-blur transition-all hover:scale-105 flex flex-col items-center gap-2 group"
+                  >
+                    <Upload size={28} className="text-cyan-400 group-hover:text-white" />
+                    <span className="font-medium">Đổi Skin</span>
+                  </button>
+                  <button 
+                    onClick={() => currentPlayer && setShowCustomizeModal(true)}
+                    disabled={!currentPlayer}
+                    className="py-4 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl backdrop-blur transition-all hover:scale-105 flex flex-col items-center gap-2 group"
+                  >
+                    <Settings size={28} className="text-purple-400 group-hover:text-white" />
+                    <span className="font-medium">Tùy chỉnh</span>
+                  </button>
                 </div>
 
                 {currentPlayer?.type === 'offline' && (
@@ -573,9 +630,18 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
                 )}
               </div>
             </div>
-          </motion.div>
+          </MotionDiv>
         </>
       )}
+      <CustomizeModal
+        isOpen={showCustomizeModal}
+        onClose={() => setShowCustomizeModal(false)}
+        player={currentPlayer!}
+        skinVersion={skinVersion}
+        onChangeSkin={handleChangeSkin}
+        onChangeCape={handleChangeCape}
+        onChangeElytra={handleChangeElytra}
+      />
     </AnimatePresence>
   )
 }

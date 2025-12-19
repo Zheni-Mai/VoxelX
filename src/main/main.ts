@@ -40,7 +40,7 @@ let launcher: CustomMinecraftLauncher | null = null
 let updateWindow: BrowserWindow | null = null
 let createUpdateWindowFromUpdater: () => BrowserWindow
 let tray: Tray | null = null
-let musicServerPort = 47321
+let musicServerPort: number = 0;
 //autoUpdater.forceDevUpdateConfig = false
 
 ipcMain.handle('getAppDataPath', async () => {
@@ -387,7 +387,7 @@ const createSplashWindow = () => {
 
 const createLogWindow = () => {
   logWindow = new BrowserWindow({
-    width: 500,
+    width: 900,
     height: 500,
     maximizable: true,
     fullscreenable: true,
@@ -509,10 +509,6 @@ function createTray() {
   tray.on('click', () => mainWindow?.show())
 }
 
-ipcMain.handle('music:get-server-url', () => {
-  return `http://127.0.0.1:${musicServerPort}`
-})
-
 ipcMain.handle('music:delete-file', async (_event, dir: string, filename: string) => {
   const fullPath = path.join(dir, filename)
   try {
@@ -568,9 +564,19 @@ const startMusicServer = async () => {
     }
   })
 
-  server.listen(musicServerPort, '127.0.0.1')
-  console.log(`Music server running at http://127.0.0.1:${musicServerPort}`)
+  return new Promise<number>((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      musicServerPort = (server.address() as any).port;
+      console.log(`Music server running at http://127.0.0.1:${musicServerPort}`);
+      resolve(musicServerPort);
+    });
+  });
 }
+
+ipcMain.handle('music:get-server-url', () => {
+  if (musicServerPort === 0) return 'http://127.0.0.1:47321'; // fallback nếu chưa khởi động
+  return `http://127.0.0.1:${musicServerPort}`;
+});
 
 ipcMain.handle('music:get-dir', async () => {
   const appDataPath = await getAppDataPath()
@@ -581,6 +587,7 @@ app.whenReady().then(async () => {
   const updater = registerUpdateHandlers()
   createUpdateWindowFromUpdater = updater.createUpdateWindow
   await startMusicServer()
+
   autoUpdater.forceDevUpdateConfig = true
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
@@ -690,8 +697,6 @@ app.on('activate', () => {
     ipcMain.once('splash-ready', createMainWindow)
   }
 })
-
-ipcMain.handle('ping', () => 'pong từ main process!')
 
 app.on('window-all-closed', () => {
   stopOnlineTracking()

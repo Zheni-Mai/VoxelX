@@ -1,6 +1,6 @@
 //app.tsx
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import PlayerHead from './components/PlayerHead'
 import Logo from '@/assets/icons/logo.png'
 import UpdateSound from '@/assets/sounds/update.mp3'
@@ -16,6 +16,10 @@ import ToastContainer from './components/ToastContainer'
 import { useToast } from './hooks/useToast'
 import WelcomeCarouselModal from './components/WelcomeCarouselModal'
 import MusicPlayerBar from './components/MusicPlayerBar'
+import AboutPage from './about/AboutPage'
+import Sidebar from './components/Sidebar';
+import { AnimationProvider } from './context/AnimationContext'
+import { MotionDiv } from './utils/motion'
 
 import { 
   Home, 
@@ -32,8 +36,10 @@ import { Account } from '../main/types/account'
 import SettingsPanel from './settings/SettingsPanel'
 import LogConsole from './LogConsole'
 import UpdateScreen from './UpdateScreen'
+import MusicPlaylistModal from './components/MusicPlaylistModal'
+import ResourceManagerModal from './launcher/modals/ResourceManagerModal'
 
-type Page = 'home' | 'profile' | 'settings' | 'about'
+type Page = 'home' | 'profile' | 'lan' | 'settings' | 'about'
 
 const sounds = {
   update: new Audio(UpdateSound)
@@ -46,12 +52,6 @@ Object.values(sounds).forEach(sound => {
   sound.volume = 0.4
 })
 
-const menuItems = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'profile', label: 'profile', icon: Folder },
-  { id: 'settings', label: 'Settings', icon: Settings },
-  { id: 'about', label: 'About', icon: Info },
-] as const
 
 export default function App() {
   const { theme } = useTheme()
@@ -73,7 +73,14 @@ export default function App() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const { success, error, warning, info, toasts, removeToast } = useToast()
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
-  const [currentLauncherVersion, setCurrentLauncherVersion] = useState('0.0.7')
+  const [currentLauncherVersion, setCurrentLauncherVersion] = useState('0.0.9')
+  const [animationsEnabled, setAnimationsEnabled] = useState(true)
+  const [showMusicPlaylist, setShowMusicPlaylist] = useState(false)
+  const [musicTracks, setMusicTracks] = useState<any[]>([])
+  const [currentMusicTrack, setCurrentMusicTrack] = useState<any>(null)
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false)
+  const [isResourceManagerOpen, setIsResourceManagerOpen] = useState(false)
+  const [resourceManagerProfile, setResourceManagerProfile] = useState<Profile | null>(null)
 
   const urlParams = new URLSearchParams(window.location.search)
   const isSplash = urlParams.get('mode') === 'splash'
@@ -94,7 +101,6 @@ export default function App() {
     return <UpdateScreen/>
   } 
 
-
   const handleSkinChange = () => {
     setSkinVersion(prev => prev + 1)
   }
@@ -103,6 +109,45 @@ export default function App() {
     setProfilesVersion(prev => prev + 1)
   }
   
+  useEffect(() => {
+    const handleOpenResourceManager = (e: Event) => {
+      const event = e as CustomEvent
+      setResourceManagerProfile(event.detail.profile)
+      setIsResourceManagerOpen(true)
+    }
+
+    window.addEventListener('open-resource-manager-modal', handleOpenResourceManager)
+
+    return () => {
+      window.removeEventListener('open-resource-manager-modal', handleOpenResourceManager)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleOpenPlaylist = () => {
+      setShowMusicPlaylist(true)
+    }
+
+    window.addEventListener('open-music-playlist', handleOpenPlaylist)
+
+    return () => {
+      window.removeEventListener('open-music-playlist', handleOpenPlaylist)
+    }
+  }, [])
+
+  useEffect(() => {
+    const updateMusicState = (e: Event) => {
+      const event = e as CustomEvent
+      setMusicTracks(event.detail.tracks || [])
+      setCurrentMusicTrack(event.detail.currentTrack || null)
+      setIsMusicPlaying(event.detail.isPlaying || false)
+    }
+
+    window.addEventListener('music-state-update', updateMusicState)
+
+    return () => window.removeEventListener('music-state-update', updateMusicState)
+  }, [])
+
   useEffect(() => {
     const unsubscribe = window.electronAPI.onToast((toast) => {
       success(toast.message, toast.title)
@@ -187,46 +232,46 @@ export default function App() {
     initCurrentPlayer()
   }, [])
 
-useEffect(() => {
-  const handleOpenModsModal = (e: Event) => {
-    const customEvent = e as CustomEvent
-    setModsModalProfile(customEvent.detail.profile)
-  }
-
-  window.addEventListener('open-mods-modal', handleOpenModsModal)
-
-  return () => {
-    window.removeEventListener('open-mods-modal', handleOpenModsModal)
-  }
-}, [])
-
-useEffect(() => {
-  const fetchOnlineCount = async () => {
-    try {
-      const res = await fetch('https://foxstudio.site/api/online.php?t=' + Date.now(), {
-        cache: 'no-cache'
-      })
-      if (!res.ok) throw new Error('HTTP ' + res.status)
-      
-      const data = await res.json()
-      if (data.formatted) {
-        setOnlineCount(data.formatted)
-      } else {
-        setOnlineCount('Lỗi server')
-      }
-    } catch (err) {
-      console.warn('Không lấy được số người online:', err)
-      setOnlineCount('Offline')
-    } finally {
-      setIsLoadingOnline(false)
+  useEffect(() => {
+    const handleOpenModsModal = (e: Event) => {
+      const customEvent = e as CustomEvent
+      setModsModalProfile(customEvent.detail.profile)
     }
-  }
 
-  fetchOnlineCount()
-  const interval = setInterval(fetchOnlineCount, 45_000)
+    window.addEventListener('open-mods-modal', handleOpenModsModal)
 
-  return () => clearInterval(interval)
-}, [])
+    return () => {
+      window.removeEventListener('open-mods-modal', handleOpenModsModal)
+    }
+  }, [])
+
+  useEffect(() => {
+    const fetchOnlineCount = async () => {
+      try {
+        const res = await fetch('https://foxstudio.site/api/online.php?t=' + Date.now(), {
+          cache: 'no-cache'
+        })
+        if (!res.ok) throw new Error('HTTP ' + res.status)
+        
+        const data = await res.json()
+        if (data.formatted) {
+          setOnlineCount(data.formatted)
+        } else {
+          setOnlineCount('Lỗi server')
+        }
+      } catch (err) {
+        console.warn('Không lấy được số người online:', err)
+        setOnlineCount('Offline')
+      } finally {
+        setIsLoadingOnline(false)
+      }
+    }
+
+    fetchOnlineCount()
+    const interval = setInterval(fetchOnlineCount, 45_000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     const initCurrentPlayer = async () => {
@@ -287,6 +332,45 @@ useEffect(() => {
     }
   }, [isSplash, isLog, isUpdate])
 
+  useEffect(() => {
+    const loadAnimationSetting = async () => {
+      try {
+        const appDataPath = await window.electronAPI.profileAPI.getAppDataPath()
+        const settingsPath = `${appDataPath}/settings/settings.json`
+        
+        const data = await window.electronAPI.fileAPI.readFile(settingsPath)
+        if (data) {
+          const saved = JSON.parse(data)
+          if (saved.launcher?.animationsEnabled !== undefined) {
+            setAnimationsEnabled(saved.launcher.animationsEnabled)
+          }
+        }
+      } catch (err) {
+        console.log('Không load được animation setting, dùng mặc định')
+      }
+    }
+
+    loadAnimationSetting()
+
+    const handleSettingsUpdate = (e: Event) => {
+      const event = e as CustomEvent
+      if (event.detail?.launcher?.animationsEnabled !== undefined) {
+        setAnimationsEnabled(event.detail.launcher.animationsEnabled)
+      }
+    }
+
+    window.addEventListener('settings-updated', handleSettingsUpdate)
+    return () => window.removeEventListener('settings-updated', handleSettingsUpdate)
+  }, [])
+
+  useEffect(() => {
+    const handler = () => {
+      window.toast.success('Ảnh đã được copy tự động khi nhấn F2!')
+    }
+    window.electronAPI.on('screenshot-copied', handler)
+    return () => window.electronAPI.off('screenshot-copied', handler)
+  }, [])
+
   const v = window.electronAPI.versions
 
   const renderContent = () => {
@@ -298,22 +382,15 @@ useEffect(() => {
       //<ProfilesPage profilesVersion={profilesVersion} />
     }
     if (activePage === 'about') {
-      return (
-        <div className="flex items-center text-gray-400 justify-center min-h-screen">
-          <div className="text-center">
-            <h2 className="text-6xl font-bold text-accent mb-8">
-              VoxelX v2.0 • Built with love & React + Electron
-            </h2>
-            <p className="text-xl text-gray-600">Coming very soon...</p>
-          </div>
-        </div>
-      )
+      return <AboutPage />
     }
     return null
   }
 
   return (
-    <>
+
+    <AnimationProvider animationsEnabled={animationsEnabled}>
+<>
     <div 
       className="fixed inset-0 -z-50"
       style={{
@@ -340,6 +417,7 @@ useEffect(() => {
           <div className="water-flow" />
         </>
       )}
+      
         <div  
           className="fixed inset-x-0 top-0 h-11 bg-black/70 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4 z-50 select-none"
           style={{ ["WebkitAppRegion"]: "drag" } as React.CSSProperties}>
@@ -371,6 +449,8 @@ useEffect(() => {
             {activePage === 'about' && 'About'}
           </div>
           <div className="flex items-center gap-2" style={{ ["WebkitAppRegion"]: "no-drag" } as React.CSSProperties}>
+
+            <MusicPlayerBar />
             <button
               onClick={() => setShowAccounts(true)}
               className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-white/10 transition-all group"
@@ -402,6 +482,7 @@ useEffect(() => {
               <Gamepad2 size={20} className="text-gray-400 group-hover:text-cyan-400 transition" />
               <span className="text-sm font-medium">Instances</span>
             </button>
+
             <div className="flex items-center ml-4">
               <button
                 onClick={() => window.electronAPI.windowAPI.minimize()}
@@ -425,76 +506,18 @@ useEffect(() => {
             </div>
           </div>
         </div>
-        <div className="fixed left-0 top-11 bottom-0 w-20 bg-black/40 backdrop-blur-2xl border-r border-white/10 flex flex-col items-center py-6 z-40">
-          <nav className="space-y-4 flex-1 w-full flex flex-col items-center">
-            {menuItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activePage === item.id
-              const isSettingsActive = item.id === 'settings' && showSettings
-
-              return (
-                <div key={item.id} className="relative">
-                  <button
-                    onClick={() => {
-                      if (item.id === 'settings') {
-                        setShowSettings(true)
-                      } else {
-                        setActivePage(item.id as Page)
-                      }
-                    }}
-                    onMouseEnter={() => setHovered(item.id)}
-                    onMouseLeave={() => setHovered(null)}
-                    className={`relative p-4 rounded-2xl transition-all duration-300 group ${
-                      isSettingsActive
-                        ? 'bg-gradient-to-br from-purple-500/40 to-cyan-500/40 border border-purple-400 shadow-xl shadow-purple-500/30'
-                        : isActive
-                        ? 'bg-gradient-to-br from-emerald-500/30 to-cyan-500/30 border border-emerald-500/50 shadow-xl'
-                        : 'hover:bg-white/10'
-                    }`}
-                  >
-                    <Icon 
-                      size={28} 
-                      className={
-                        isSettingsActive
-                          ? 'text-purple-300'
-                          : isActive
-                          ? 'text-emerald-400'
-                          : 'text-gray-500 group-hover:text-white'
-                      } 
-                    />
-                    {(isActive || isSettingsActive) && (
-                      <motion.div
-                        layoutId="activeIndicator"
-                        className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/20 to-cyan-500/20 -z-10"
-                      />
-                    )}
-                  </button>
-                  {hovered === item.id && (
-                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-black/90 backdrop-blur-xl rounded-lg text-sm whitespace-nowrap pointer-events-none z-50">
-                      {item.label}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </nav>
-          <button
-            onClick={() => window.close()}
-            aria-label="Thoát VoxelX"
-            className="p-4 rounded-2xl hover:bg-red-500/20 transition-all group mb-8"
-          >
-            <LogOut size={28} className="text-gray-500 group-hover:text-red-400 transition-colors" />
-          </button>
-          <div className="mt-1 mb-1 text-center">
-            <p className="text-xs opacity-70">
-              v{currentLauncherVersion}
-            </p>
-          </div>
-        </div>
+        <Sidebar
+          activePage={activePage}
+          setActivePage={setActivePage}
+          setShowSettings={setShowSettings}
+          hovered={hovered}
+          setHovered={setHovered}
+          currentLauncherVersion={currentLauncherVersion}
+        />
         <div className="fixed inset-0 top-11 left-20 right-0 overflow-y-auto scrollbar-hide">
           <div className="min-h-full">
             <AnimatePresence mode="wait">
-              <motion.div
+              <MotionDiv
                 key={activePage}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -502,7 +525,7 @@ useEffect(() => {
                 transition={{ duration: 0.25 }}
               >
                 {renderContent()}
-              </motion.div>
+              </MotionDiv>
             </AnimatePresence>
           </div>
         </div>
@@ -528,7 +551,6 @@ useEffect(() => {
         removeToast={removeToast} 
       />
       <LaunchModal />
-      <MusicPlayerBar />
       <WelcomeCarouselModal
         isOpen={showWelcomeModal}
         onClose={() => setShowWelcomeModal(false)}
@@ -539,19 +561,46 @@ useEffect(() => {
         onClose={() => setModsModalProfile(null)}
         profile={modsModalProfile}
       />
+
+      {isResourceManagerOpen && resourceManagerProfile && (
+        <ResourceManagerModal
+          isOpen={isResourceManagerOpen}
+          onClose={() => setIsResourceManagerOpen(false)}
+          profile={resourceManagerProfile}
+        />
+      )}
+
+      <MusicPlaylistModal
+        isOpen={showMusicPlaylist}
+        onClose={() => setShowMusicPlaylist(false)}
+        tracks={musicTracks}
+        currentTrack={currentMusicTrack}
+        isPlaying={isMusicPlaying}
+        onPlayTrack={(track) => {
+          window.dispatchEvent(new CustomEvent('music-play-track', { detail: track }))
+        }}
+        onAddMusic={() => {
+          window.dispatchEvent(new CustomEvent('music-add'))
+        }}
+        onDeleteTrack={async (track) => {
+          window.dispatchEvent(new CustomEvent('music-delete-track', { detail: track }))
+        }}
+      />
       {editModalOpen && editingProfile && (
-              <SettingProfileModal
-                isOpen={editModalOpen}
-                onClose={() => {
-                  setEditModalOpen(false)
-                  setEditingProfile(null)
-                }}
-                profile={editingProfile}
-                appDataPath={appDataPath}
-                onUpdate={setProfiles}
-              />
-            )}
+        <SettingProfileModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false)
+          setEditingProfile(null)
+        }}
+          profile={editingProfile}
+          appDataPath={appDataPath}
+          onUpdate={setProfiles}
+        />
+      )}
     </div>
   </>
+    </AnimationProvider>
+    
   )
 }

@@ -264,3 +264,26 @@ input[type="range"] {
   background-size: 300% 300%;
   animation: border-flow 6s linear infinite linear;
 }
+
+/* Theme Electron Network - Particle connection effect */
+.electron-network-animated {
+  position: relative;
+  overflow: hidden;
+  background: #353535; /* Nền tím đen */
+}
+
+.electron-network-animated::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.6;
+}
+
+#electron-particles-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+}

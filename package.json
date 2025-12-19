@@ -1,6 +1,6 @@
 {
   "name": "VoxelX",
-  "version": "0.0.6",
+  "version": "0.0.9",
   "description": "VoxelX",
   "main": "dist/main/main.js",
   "author": "FoxStudio",
@@ -12,7 +12,8 @@
     "electron": "tsc -p tsconfig.main.json && electron .",
     "build": "vite build && tsc -p tsconfig.main.json && electron-builder",
     "preview": "npm run build && electron .",
-    "build:win": "npm run build && electron-builder --win"
+    "build:win": "npm run build && electron-builder --win",
+    "build:linux": "npm run build && electron-builder --linux"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
@@ -28,6 +29,7 @@
     "@types/three": "^0.181.0",
     "@types/unzipper": "^0.10.11",
     "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.0.1",
@@ -64,17 +66,27 @@
     "minecraft-launcher-lib": "^0.4.0",
     "minecraft-player": "^1.0.1",
     "msmc": "^5.0.5",
+    "node-datachannel": "^0.31.0",
     "node-fetch": "^2.6.7",
+    "public-ip": "^8.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
+    "react-markdown": "^10.1.0",
     "react-minecraft": "^1.1.0",
     "react-skinview3d": "^7.0.0",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "semver": "^7.7.3",
+    "simple-peer": "^9.11.1",
+    "skin3d": "^0.0.12",
     "skinview3d": "^3.4.1",
+    "socket.io": "^4.8.1",
     "three": "^0.181.2",
     "unzipper": "^0.12.3",
-    "uuid": "8.3.2"
+    "uuid": "^8.3.2",
+    "ws": "^8.18.3"
   },
   "build": {
     "appId": "com.voxelx.engine",
@@ -104,7 +116,12 @@
     "win": {
       "target": "nsis",
       "icon": "src/renderer/assets/logo.ico",
-      "artifactName": "VoxelX_Setup_${version}.${ext}"
+      "artifactName": "VoxelX_${version}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"], 
+      "category": "Utility",        
+      "icon": "src/renderer/assets/logo.png"
     },
     "nsis": {
       "oneClick": false,
