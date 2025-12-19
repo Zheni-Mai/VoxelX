@@ -34,7 +34,7 @@
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.0.1",
     "electron": "^33.0.2",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^26.0.12",
     "framer-motion": "^11.18.2",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
@@ -119,8 +119,11 @@
       "artifactName": "VoxelX_${version}.${ext}"
     },
     "linux": {
-      "target": ["AppImage", "deb"], 
-      "category": "Utility",        
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
       "icon": "src/renderer/assets/logo.png"
     },
     "nsis": {
