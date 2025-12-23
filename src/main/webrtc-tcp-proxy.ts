@@ -5,7 +5,6 @@ import { BrowserWindow } from 'electron';
 import { v4 as uuidv4 } from 'uuid';
 import fetch from 'node-fetch';
 
-const METERED_API_KEY = '26afed197e74ad2dd4bb105f77d7af7792f5';
 
 let ICE_SERVERS: any[] = [{ urls: 'stun:stun.l.google.com:19302' }]
 
