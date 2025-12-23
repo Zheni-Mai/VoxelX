@@ -42,7 +42,7 @@ export default function ChangelogHistoryModal({
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="bg-black/70 backdrop-blur-3xl rounded-2xl border border-gray-500/40 shadow-2xl 
+              className="bg-black/70 backdrop-blur-ms rounded-2xl border border-gray-500/40 shadow-2xl 
                         w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >

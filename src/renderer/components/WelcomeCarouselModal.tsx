@@ -64,17 +64,17 @@ const prevSlide = () => {
   const handleClose = async () => {
     if (dontShowAgain) {
       try {
-        const appDataPath = await window.electronAPI.profileAPI.getAppDataPath()
+        // Chỉ truyền thư mục tương đối (hoặc '' nếu lưu trực tiếp trong .VoxelX)
         await window.electronAPI.fileAPI.writeFile(
-          appDataPath,
-          'welcome_seen.json',
+          '',                       // ← Thư mục gốc của .VoxelX
+          'welcome_seen.json',      // Tên file
           JSON.stringify({ version: currentVersion })
-        )
+        );
       } catch (err) {
-        console.error('Không lưu được trạng thái welcome modal:', err)
+        console.error('Không lưu được trạng thái welcome modal:', err);
       }
     }
-    onClose()
+    onClose();
   }
 
   if (!isOpen) return null

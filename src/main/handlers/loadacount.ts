@@ -20,9 +20,6 @@ const {
   access,
 } = fsPromises
 
-const ELYBY_CLIENT_ID = 'voxelxs'
-const ELYBY_CLIENT_SECRET = 'x57aFP2velPTM_iPgQsAXR8pE-P8ZEAVkGyEMruNl4muSFSmaBTAMlTqhAn6xYgn'
-const ELYBY_REDIRECT_URI = 'https://foxstudio.site/api/elyby-callback.html'
 
 export function loadAccountHandlers(mainWindow: BrowserWindow) {
 
@@ -383,9 +380,7 @@ export function loadAccountHandlers(mainWindow: BrowserWindow) {
     ipcMain.handle('changeSkin', async (_event, { username, filePath }: { username: string; filePath: string }) => {
       try {
         const appDataPath = app.getPath('appData')
-        const voxelDir = process.env.NODE_ENV === 'development' 
-          ? 'C:/VoxelX-test' 
-          : path.join(appDataPath, '.VoxelX')
+        const voxelDir = path.join(appDataPath, '.VoxelX')
         
         const skinDir = path.join(voxelDir, 'skins')
         await mkdir(skinDir, { recursive: true })
@@ -403,9 +398,7 @@ export function loadAccountHandlers(mainWindow: BrowserWindow) {
     ipcMain.handle('getLocalSkinBase64', async (_event, username: string) => {
       try {
         const appDataPath = app.getPath('appData')
-        const voxelDir = process.env.NODE_ENV === 'development'
-          ? 'C:/VoxelX-test'
-          : path.join(appDataPath, '.VoxelX')
+        const voxelDir = path.join(appDataPath, '.VoxelX')
     
         const skinPath = path.join(voxelDir, 'skins', `${username}.png`)
         const buffer = await readFile(skinPath)
@@ -418,9 +411,7 @@ export function loadAccountHandlers(mainWindow: BrowserWindow) {
     ipcMain.handle('checkSkinExists', async (_event, username: string) => {
       try {
         const appDataPath = app.getPath('appData')
-        const voxelDir = process.env.NODE_ENV === 'development'
-          ? 'C:/VoxelX-test'
-          : path.join(appDataPath, '.VoxelX')
+        const voxelDir = path.join(appDataPath, '.VoxelX')
     
         const skinPath = path.join(voxelDir, 'skins', `${username}.png`)
         await access(skinPath)

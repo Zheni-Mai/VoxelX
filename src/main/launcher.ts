@@ -1,5 +1,5 @@
 // src/main/CustomMinecraftLauncher.ts
-import { app } from 'electron'
+import { app, ipcMain } from 'electron'
 import { watch } from 'fs'
 import path from 'path'
 import fs from 'fs/promises'
@@ -28,6 +28,7 @@ import { installOptiFine } from './launcher/loader/optifine.js'
 import { AntiCheatReporter } from './antiCheatReporter.js'
 import { OnlineTimeReporter } from './onlineTimeReporter'
 
+
 export class CustomMinecraftLauncher {
   private mainWindow: Electron.BrowserWindow
   private abortController = new AbortController()
@@ -37,9 +38,17 @@ export class CustomMinecraftLauncher {
   private currentPlayerName: string = '';
   private currentPlayerUuid: string = '';
   private currentModsDir: string = '';
+  private readonly currentClientId: string;
 
-  constructor(mainWindow: Electron.BrowserWindow) {
+  constructor(mainWindow: Electron.BrowserWindow, clientId: string) {
     this.mainWindow = mainWindow
+    this.currentClientId = clientId
+    console.log('[Launcher] Client ID đã được gán:', this.currentClientId)
+    AntiCheatReporter.loadServers().then(() => {
+      console.log('[Launcher] Loaded monitored servers from API:', AntiCheatReporter.MONITORED_SERVERS);
+    }).catch(err => {
+      console.error('[Launcher] Load servers failed:', err);
+    });
   }
 
   setLogWindow(window: BrowserWindow | null) {
@@ -47,23 +56,29 @@ export class CustomMinecraftLauncher {
     console.log('[Launcher] Log window đã được gán:', !!window)
   }
 
-private send(channel: string, data: any) {
-  if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-    this.mainWindow.webContents.send(channel, data)
-  }
-  if (this.logWindow && !this.logWindow.isDestroyed()) {
-    this.logWindow.webContents.send(channel, data)
-  }
+  private send(channel: string, data: any) {
+    const windowsToSend = new Set<BrowserWindow>()
 
-  BrowserWindow.getAllWindows().forEach(win => {
-    if (win !== this.mainWindow && !win.isDestroyed()) {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      windowsToSend.add(this.mainWindow)
+    }
+    if (this.logWindow && !this.logWindow.isDestroyed()) {
+      windowsToSend.add(this.logWindow)
+    }
+
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (!win.isDestroyed()) {
+        windowsToSend.add(win)
+      }
+    })
+
+    windowsToSend.forEach(win => {
       try {
         win.webContents.send(channel, data)
       } catch (e) {
       }
-    }
-  })
-}
+    })
+  }
 
   private log(message: string, level: 'info' | 'warn' | 'error' | 'success' = 'info') {
     console.log(`[CustomLauncher] ${message}`)
@@ -104,7 +119,7 @@ private send(channel: string, data: any) {
     if (!username?.trim() || username.trim().length < 3) throw new Error('Tên người chơi phải từ 3 ký tự trở lên!')
     const playerName = username.trim()
 
-    this.log(`Khởi động profile "${profileName}" - ${account ? 'Online (Ely.by)' : 'Offline'}: ${playerName}`)
+    this.log(`Khởi động profile "${profileName}" - ${account ? 'Online' : 'Offline'}: ${playerName}`)
     this.send('launch-start', {})
     this.progress(0, 'Chuẩn bị...')
 
@@ -150,10 +165,13 @@ private send(channel: string, data: any) {
       }
 
       let versionId = profile.version
+      let fabricLoaderVersion: string | undefined = undefined
       if (profile.loader === 'fabric') {
         const loaderVer = profile.loaderVersion || 'latest'
         versionId = await installFabric(profile.version, loaderVer, gameDir, signal)
         this.log(`Fabric đã được cài → version: ${versionId}`, 'success')
+        const loaderMatch = versionId.match(/fabric-loader-([0-9.]+)/)
+        fabricLoaderVersion = loaderMatch ? loaderMatch[1] : loaderVer === 'latest' ? 'latest' : loaderVer
       } else if (profile.loader === 'quilt') {
         const loaderVer = profile.loaderVersion || 'latest'
         versionId = await installQuilt(profile.version, loaderVer, gameDir, signal)
@@ -199,7 +217,7 @@ private send(channel: string, data: any) {
 
       } else if (profile.loader === 'vanilla' && (profile.optifine === true || typeof profile.optifine === 'string')) {
         const optiVer = typeof profile.optifine === 'string' ? profile.optifine : 'latest'
-        versionId = await installOptiFine(  // ← Quan trọng: gán lại versionId từ OptiFine
+        versionId = await installOptiFine( 
           profile.version,
           optiVer,
           gameDir,
@@ -296,12 +314,7 @@ private send(channel: string, data: any) {
         '-Dminecraft.launcher.brand=VoxelX',
         '-Dminecraft.launcher.version=1.0',
         `-Xmx${profile.memory?.max || '6G'}`,
-        `-Xms${profile.memory?.min || '2G'}`,
-        '-XX:+UseG1GC',
-        '-XX:+UnlockExperimentalVMOptions',
-        '-XX:G1NewSizePercent=20',
-        '-XX:G1ReservePercent=20',
-        '-XX:MaxGCPauseMillis=50',
+        `-Xms${profile.memory?.min || '512M'}`,
         ...(profile.jvmArgs || [])
       ]
 
@@ -426,15 +439,18 @@ private send(channel: string, data: any) {
       } 
       else {
         const crypto = require('crypto')
-        const offlineUuid = crypto.createHash('md5')
-          .update('OfflinePlayer:' + playerName, 'utf8')
+        
+        let crackedUuid = crypto.createHash('md5')
+          .update(playerName, 'utf8')
           .digest('hex')
           .replace(/(\w{8})(\w{4})(\w{4})(\w{4})(\w{12})/, '$1-$2-$3-$4-$5')
+        
         gameArgs.push(
-          '--uuid', offlineUuid.replace(/-/g, ''),
+          '--uuid', crackedUuid.replace(/-/g, ''),
           '--accessToken', '0'
         )
-        this.currentPlayerUuid = offlineUuid;
+        
+        this.currentPlayerUuid = crackedUuid
       }
 
       if (account?.uuid) {
@@ -443,6 +459,10 @@ private send(channel: string, data: any) {
       this.currentPlayerName = playerName;
       const modsDir = path.join(gameDir, 'mods');
       this.currentModsDir = modsDir;
+      if (profile.loader === 'fabric' && fabricLoaderVersion) {
+        await fs.mkdir(modsDir, { recursive: true })
+        await this.ensureFabricAPI(profile.version, fabricLoaderVersion, modsDir, signal)
+      }
       this.currentJoinedServer = null;
 
       this.progress(100, 'Khởi động JVM...')
@@ -519,45 +539,60 @@ private send(channel: string, data: any) {
 
       this.startScreenshotWatcher(gameDir)
       mc.stdout?.on('data', (data) => {
-        const line = data.toString()
-        this.pipeLog(line)
+        const line = data.toString();
+        this.pipeLog(line);
 
-        const joinMatch = line.match(/\[CHAT\] \[§.[^§]*§r\] §fBạn đã kết nối đến server §b(.+)§f!/)
-          || line.match(/Connecting to (.+), \d+/)
-          || line.match(/Connecting to (.+)/)
+        const joinMatch = 
+          line.match(/\[CHAT\] \[§.[^§]*§r\] §fBạn đã kết nối đến server §b(.+)§f!/) ||
+          line.match(/Connecting to (.+), \d+/) ||
+          line.match(/Connecting to (.+)/);
 
         if (joinMatch) {
-          const serverIp = joinMatch[1].trim().toLowerCase()
-          this.currentJoinedServer = serverIp
-          this.log(`Phát hiện join server: ${serverIp}`, 'info')
+          const detectedIp = joinMatch[1].trim().toLowerCase();
+          this.currentJoinedServer = detectedIp;
+          this.log(`Phát hiện join server: ${detectedIp}`, 'info');
 
-          if (AntiCheatReporter.isMonitoredServer(serverIp)) {
+          // Debug: In danh sách server từ API để kiểm tra
+          this.log(`Danh sách server từ API: ${JSON.stringify(AntiCheatReporter.MONITORED_SERVERS)}`, 'info');
+
+          // Tìm server khớp (match linh hoạt hơn)
+          const matchedServer = AntiCheatReporter.getServerConfig(detectedIp);
+
+          if (matchedServer) {
+            this.log(`Server khớp: ${matchedServer.ip} (port plugin: ${matchedServer.port})`, 'success');
+            this.log(`→ Sẽ gửi request đến: http://${matchedServer.ip}:${matchedServer.port}/...`, 'info');
+
+            // Gửi anti-cheat report
             this.handleAntiCheatReport(
               this.currentPlayerName,
               this.currentPlayerUuid,
-              serverIp,
+              detectedIp,
               this.currentModsDir
-            )
+            );
+
+            // Bắt đầu tracking online time
+            OnlineTimeReporter.startTracking(
+              detectedIp,
+              this.currentPlayerName,
+              this.currentClientId
+            );
+
+            // Gửi launcher auth
+            OnlineTimeReporter.sendLauncherAuth(
+              this.currentPlayerName,
+              this.currentClientId,
+              detectedIp
+            ).catch(() => {});
+          } else {
+            this.log(`KHÔNG tìm thấy server khớp với '${detectedIp}' trong danh sách giám sát`, 'warn');
           }
-
-          OnlineTimeReporter.startTracking(
-            serverIp,
-            this.currentPlayerName,
-            this.currentPlayerUuid
-          )
-
-          OnlineTimeReporter.sendLauncherAuth(
-            this.currentPlayerName,
-            this.currentPlayerUuid,
-            serverIp
-          ).catch(() => {})
         }
 
         if (line.includes('Lost connection') || line.includes('Kicked') || line.includes('Disconnected')) {
-          this.currentJoinedServer = null
-          OnlineTimeReporter.stopTracking()
+          this.currentJoinedServer = null;
+          OnlineTimeReporter.stopTracking();
         }
-      })
+      });
 
       mc.stderr?.on('data', d => this.pipeLog(d.toString(), '[ERR] '))
       mc.on('close', (code) => {
@@ -591,9 +626,7 @@ private send(channel: string, data: any) {
       setCurrentInstance(runningInstance)
 
       this.send('minecraft-instance-started', runningInstance)
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.webContents.send('game-will-launch')
-      }
+      ipcMain.emit('game-will-launch')
 
     } catch (err: any) {
       if (signal.aborted) return this.log('Đã hủy khởi động', 'warn')
@@ -667,7 +700,7 @@ private send(channel: string, data: any) {
   }
   private async getAppDataPath(): Promise<string> {
     const base = app.getPath('appData')
-    const dir = process.env.NODE_ENV === 'development' ? 'C:/VoxelX-test' : path.join(base, '.VoxelX')
+    const dir = path.join(base, '.VoxelX')
     await fs.mkdir(dir, { recursive: true })
     return dir
   }
@@ -774,6 +807,52 @@ private send(channel: string, data: any) {
 
     } catch (watchError) {
       console.error('[ScreenshotWatcher] Không thể bắt đầu watch:', (watchError as Error).message)
+    }
+  }
+
+  private async ensureFabricAPI(
+    minecraftVersion: string,
+    loaderVersion: string,
+    modsDir: string,
+    signal: AbortSignal
+  ) {
+    const apiProjectId = 'P7dR8mSH'
+    const apiUrl = `https://api.modrinth.com/v2/project/${apiProjectId}/version`
+
+    try {
+      const res = await fetch(apiUrl, { signal })
+      if (!res.ok) {
+        this.log('Không thể lấy danh sách phiên bản Fabric API từ Modrinth', 'warn')
+        return
+      }
+
+      const versions: any[] = await res.json()
+      const compatibleVersion = versions.find(v =>
+        v.game_versions.includes(minecraftVersion) &&
+        v.loaders.includes('fabric') &&
+        (v.dependencies.some((dep: any) =>
+          dep.project_id === 'k5YlA3P9' && 
+          dep.version_number === loaderVersion
+        ) || true)
+      )
+
+      if (!compatibleVersion) {
+        this.log(`Không tìm thấy Fabric API tương thích với MC ${minecraftVersion} + Fabric ${loaderVersion}`, 'warn')
+        return
+      }
+
+      const apiFile = compatibleVersion.files.find((f: any) => f.primary) || compatibleVersion.files[0]
+      if (!apiFile) return
+
+      const fileName = apiFile.filename
+      const fileUrl = apiFile.url
+      const destPath = path.join(modsDir, fileName)
+      if (await fileExists(destPath)) {
+        return
+      }
+      await this.downloadFile(fileUrl, destPath, `Fabric API (${fileName})`, signal)
+    } catch (err: any) {
+      if (signal.aborted) return
     }
   }
 

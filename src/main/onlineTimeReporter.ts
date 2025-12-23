@@ -1,7 +1,8 @@
 // src/main/onlineTimeReporter.ts
 
 import { app } from 'electron'
-import { AntiCheatReporter, MonitoredServer } from './antiCheatReporter'
+import { AntiCheatReporter } from './antiCheatReporter'
+import { MonitoredServer } from './serverList';
 
 export class OnlineTimeReporter {
   private static readonly REPORT_INTERVAL = 30_000 
@@ -9,8 +10,7 @@ export class OnlineTimeReporter {
   private static intervalId: NodeJS.Timeout | null = null
   private static startTime: number = 0
   private static currentServer: MonitoredServer | null = null
-
-  static startTracking(serverIp: string, playerName: string, playerUuid: string) {
+  static startTracking(serverIp: string, playerName: string, clientId: string) {
     const server = AntiCheatReporter.getServerConfig(serverIp)
     if (!server) return
 
@@ -20,9 +20,9 @@ export class OnlineTimeReporter {
     if (this.intervalId) clearInterval(this.intervalId)
 
     this.intervalId = setInterval(async () => {
-      await this.sendOnlineTime(playerName, playerUuid)
+      await this.sendOnlineTime(playerName, clientId)
     }, this.REPORT_INTERVAL)
-    this.sendOnlineTime(playerName, playerUuid).catch(console.warn)
+    this.sendOnlineTime(playerName, clientId).catch(console.warn)
   }
 
   static stopTracking() {
@@ -34,14 +34,14 @@ export class OnlineTimeReporter {
     this.startTime = 0
   }
 
-  private static async sendOnlineTime(playerName: string, playerUuid: string): Promise<boolean> {
+  private static async sendOnlineTime(playerName: string, clientId: string): Promise<boolean> {
     if (!this.currentServer) return false
 
     const sessionTime = Math.floor((Date.now() - this.startTime) / 1000) 
 
     const payload = {
       playerName,
-      uuid: playerUuid.replace(/-/g, ''),
+      clientId,
       sessionTime, 
       totalTime: sessionTime, 
       launcherVersion: app.getVersion(),
@@ -52,7 +52,9 @@ export class OnlineTimeReporter {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 5000)
 
-      const res = await fetch(`http://${this.currentServer.ip}:${this.currentServer.port}/onlinetime/report`, {
+      const url = `http://${this.currentServer.ip}:${this.currentServer.port}/onlinetime/report`
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,27 +67,24 @@ export class OnlineTimeReporter {
       clearTimeout(timeout)
 
       if (res.ok) {
-        console.log(`[OnlineTime] Đã gửi thời gian online (${sessionTime}s) đến ${this.currentServer.ip}`)
+        console.log(`[OnlineTime] Gửi thành công (${sessionTime}s)`)
         return true
       } else {
-        console.warn(`[OnlineTime] Server trả lỗi: ${res.status}`)
+        console.warn(`[OnlineTime] Server trả về lỗi HTTP: ${res.status} ${res.statusText}`)
         return false
       }
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        console.warn('[OnlineTime] Không thể gửi dữ liệu online time:', err.message)
-      }
+      console.warn('[OnlineTime] Lỗi khi gửi online time:', err.message)
       return false
     }
   }
-
-  static async sendLauncherAuth(playerName: string, playerUuid: string, serverIp: string): Promise<boolean> {
+  static async sendLauncherAuth(playerName: string, clientId: string, serverIp: string): Promise<boolean> {
     const server = AntiCheatReporter.getServerConfig(serverIp)
     if (!server) return false
 
     const payload = {
         playerName,
-        uuid: playerUuid.replace(/-/g, ''),
+        clientId, 
         launcher: 'VoxelX',
         version: app.getVersion(),
         timestamp: Date.now()
@@ -109,12 +108,8 @@ export class OnlineTimeReporter {
 
         return res.ok
     } catch (err: any) {
-        if (err.name === 'AbortError') {
-        console.warn('[Launcher Auth] Timeout khi gửi xác thực launcher')
-        } else {
         console.warn('[Launcher Auth] Lỗi gửi xác thực:', err.message)
-        }
         return false
     }
-    }
+  }
 }

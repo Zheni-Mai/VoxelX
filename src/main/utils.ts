@@ -12,9 +12,7 @@ const {
 
 export async function getAppDataPath(): Promise<string> {
   const appData = app.getPath('appData')
-    const dir = process.env.NODE_ENV === 'development'
-      ? 'C:/VoxelX-test'
-      : path.join(appData, '.VoxelX')
+    const dir = path.join(appData, '.VoxelX')
   
     await mkdir(dir, { recursive: true })
     console.log('AppDataPath trả về:', dir)

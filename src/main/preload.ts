@@ -33,6 +33,8 @@ const allowedListenerChannels = [
   'webrtc:lan-broadcast',
   'screenshot-copied',
   'profile:update',
+  'open-lan-play-modal',
+  'open-test-window',
 ]
 
 const allowedSendChannels = [
@@ -49,6 +51,8 @@ const allowedSendChannels = [
   'game-will-launch',    
   'game-closed',      
   'profile:update',
+  'open-lan-play-modal',
+  'open-test-window',
 ]
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -67,13 +71,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('getLocalSkinBase64', username),
   getSystemRam: () => ipcRenderer.invoke('get-system-ram'),
   getDrives: () => ipcRenderer.invoke('get-drives'),
+  getOnlineApiUrl: () => process.env.ONLINE_TRACKING_API,
+  getOnlineCount: () => ipcRenderer.invoke('get-online-count'),
+  
 
   shell: {
     showItemInFolder: (path: string) => ipcRenderer.invoke('shell:showItemInFolder', path),
     openPath: (path: string) => ipcRenderer.invoke('shell:openPath', path),
+    openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
   },
-  
-  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
 
   java: {
     ensureJava: (version: 8 | 11 | 17 | 21) => ipcRenderer.invoke('java:ensure', version),
@@ -108,6 +114,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   logWindow: {
     ready: () => ipcRenderer.send('log-window-ready')
   },
+
   profileAPI: {
     getAppDataPath: () => ipcRenderer.invoke('getAppDataPath'),
     listProfiles: (path: string) => ipcRenderer.invoke('listProfiles', path),
@@ -164,6 +171,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       subFolder,
       worldName
     ),
+    readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
+    stat: (filePath: string) => ipcRenderer.invoke('fs:stat', filePath),
+    readdir: (dir: string) => ipcRenderer.invoke('fs:readdir', dir),
+    rmdir: (dir: string, options?: { recursive?: boolean }) => 
+      ipcRenderer.invoke('fs:rmdir', dir, options || { recursive: true }),
     exportProfile: (data: { gameDirectory: string; profileName: string }) => ipcRenderer.invoke('profile:export', data),
     createTempWorldDatapackCopy: (worldName: string, filename: string) =>
       ipcRenderer.invoke('profile:createTempWorldDatapackCopy', worldName, filename),
@@ -173,6 +185,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getCurrentProfile: () => ipcRenderer.invoke('getCurrentProfile'),
     updateProfile: (data: { name: string; updates: Partial<Profile> }) => 
       ipcRenderer.invoke('profile:update', data),
+    getWorldDetails: (gameDirectory: string) => ipcRenderer.invoke('profile:getWorldDetails', gameDirectory),
+    deleteWorld: (data: { gameDirectory: string; folderName: string }) =>
+      ipcRenderer.invoke('profile:deleteWorld', data),
+    openSavesFolder: (gameDirectory: string) =>
+      ipcRenderer.invoke('profile:openSavesFolder', gameDirectory),
     getResourcePackList: (gameDirectory: string) => ipcRenderer.invoke('profile:getResourcePackList', gameDirectory),
     toggleResourcePack: (data: { gameDirectory: string; filename: string; enable: boolean }) => 
       ipcRenderer.invoke('profile:toggleResourcePack', data),
@@ -248,6 +265,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getRunning: () => ipcRenderer.invoke('instances:get-running'),
     kill: (pid: number) => ipcRenderer.invoke('instances:kill', pid),
   },
+  getMojangUUID: (username: string) => ipcRenderer.invoke('get-mojang-uuid', username),
   accountAPI: {
     getAccounts: (path: string) => ipcRenderer.invoke('getAccounts', path),
     saveAccounts: (data: any) => ipcRenderer.invoke('saveAccounts', data),
@@ -297,3 +315,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
 })
+

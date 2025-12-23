@@ -3,17 +3,16 @@ import { motion } from 'framer-motion';
 import { LogOut } from 'lucide-react';
 import { MotionDiv } from '../utils/motion'
 
-type Page = 'home' | 'profile' | 'lan' | 'settings' | 'about';
+type Page = 'home' | 'profile' | 'settings' | 'about';
 
 const menuItems = [
   { id: 'home' as Page, label: 'Home', icon: Home },
   { id: 'profile' as Page, label: 'Profiles', icon: Folder },
   { id: 'settings' as Page, label: 'Settings', icon: Settings },
-  { id: 'lan' as Page, label: 'LanToWorld', icon: Network},
   { id: 'about' as Page, label: 'About', icon: Info },
 ] as const;
 
-import { Home, Folder, Network , Settings, Info } from 'lucide-react';
+import { Home, Folder, Settings, Info } from 'lucide-react';
 
 interface SidebarProps {
   activePage: Page;

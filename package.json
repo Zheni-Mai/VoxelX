@@ -1,6 +1,6 @@
 {
   "name": "VoxelX",
-  "version": "0.0.9",
+  "version": "0.0.11",
   "description": "VoxelX",
   "main": "dist/main/main.js",
   "author": "FoxStudio",
@@ -19,9 +19,10 @@
     "@types/adm-zip": "^0.5.7",
     "@types/archiver": "^7.0.0",
     "@types/cors": "^2.8.19",
+    "@types/discord-rpc": "^4.0.10",
     "@types/electron": "^1.6.12",
     "@types/express": "^5.0.6",
-    "@types/node": "^24.10.1",
+    "@types/node": "^24.10.4",
     "@types/node-fetch": "^2.6.13",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
@@ -45,6 +46,7 @@
     "wait-on": "^8.0.1"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.1.0",
     "@types/jimp": "^0.2.1",
     "@xmcl/core": "^2.15.1",
     "@xmcl/installer": "^6.1.2",
@@ -52,10 +54,13 @@
     "@xmcl/task": "^4.1.1",
     "@xmcl/user": "^4.3.0",
     "adm-zip": "^0.5.16",
+    "antd": "^6.1.1",
     "archiver": "^7.0.1",
     "archiver-utils": "^5.0.2",
     "compare-versions": "^6.1.1",
     "cors": "^2.8.5",
+    "discord-rpc": "^4.0.1",
+    "dotenv": "^17.2.3",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.6.2",
     "express": "^5.2.1",
@@ -66,6 +71,7 @@
     "minecraft-launcher-lib": "^0.4.0",
     "minecraft-player": "^1.0.1",
     "msmc": "^5.0.5",
+    "nbt": "^0.8.1",
     "node-datachannel": "^0.31.0",
     "node-fetch": "^2.6.7",
     "public-ip": "^8.0.0",
@@ -83,6 +89,7 @@
     "skin3d": "^0.0.12",
     "skinview3d": "^3.4.1",
     "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.2",
     "three": "^0.181.2",
     "unzipper": "^0.12.3",
     "uuid": "^8.3.2",
@@ -104,6 +111,10 @@
       {
         "from": "src/renderer/assets/logo.ico",
         "to": "assets/logo.ico"
+      },
+      {
+        "from": ".env",
+        "to": ".env"
       }
     ],
     "files": [
@@ -111,12 +122,13 @@
       "dist/renderer/**/*",
       "dist/preload.js",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      ".env"
     ],
     "win": {
       "target": "nsis",
       "icon": "src/renderer/assets/logo.ico",
-      "artifactName": "VoxelX_${version}.${ext}"
+      "artifactName": "VoxelXInstall.${ext}"
     },
     "linux": {
       "target": [

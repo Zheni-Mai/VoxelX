@@ -1,13 +1,14 @@
 // src/renderer/components/modals/ResourceManagerModal.tsx
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { X, Package, Image, FileArchive, FileBox, Camera } from 'lucide-react'
+import { X, Package, Image, FileArchive, FileBox, Camera, Globe } from 'lucide-react'
 import { MotionDiv } from '../../utils/motion'
 import ModsTab from './tabs/ModsTab'
 import ResourcePacksTab from './tabs/ResourcePacksTab'
 import DataPacksTab from './tabs/DataPacksTab'
 import ShaderPacksTab from './tabs/ShaderPacksTab'
 import ScreenshotsTab from './tabs/ScreenshotsTab'
+import WorldsTab from './tabs/WorldsTab'
 
 interface Props {
   isOpen: boolean
@@ -21,7 +22,7 @@ interface Props {
   }
 }
 
-type TabType = 'mods' | 'resourcepacks' | 'shaderpacks' | 'datapacks' | 'screenshots'
+type TabType = 'mods' | 'resourcepacks' | 'shaderpacks' | 'datapacks' | 'screenshots' | 'worlds'
 
 export default function ResourceManagerModal({ isOpen, onClose, profile: initialProfile }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('mods')
@@ -33,6 +34,7 @@ export default function ResourceManagerModal({ isOpen, onClose, profile: initial
     { id: 'shaderpacks' as TabType, label: 'Shader Packs', icon: FileBox},
     { id: 'datapacks' as TabType, label: 'Data Packs', icon: FileArchive },
     { id: 'screenshots' as TabType, label: 'Screenshots', icon: Camera },
+    { id: 'worlds' as TabType, label: 'Worlds', icon: Globe },
   ]
 
   useEffect(() => {
@@ -119,6 +121,7 @@ export default function ResourceManagerModal({ isOpen, onClose, profile: initial
             {activeTab === 'shaderpacks' && <ShaderPacksTab profile={profile} />}
             {activeTab === 'datapacks' && <DataPacksTab profile={profile} />}
             {activeTab === 'screenshots' && <ScreenshotsTab profile={profile} />}
+            {activeTab === 'worlds' && <WorldsTab profile={profile} />}
           </div>
         </div>
       </MotionDiv>

@@ -55,13 +55,13 @@ export default function MusicPlayerBar() {
           }
         })
 
-        const musicServerUrl = await window.electronAPI.invoke('music:get-server-url')
-        const realMusicDir = await window.electronAPI.invoke('music:get-dir')
+        const musicServerUrl = await window.electronAPI.ipcRenderer.invoke('music:get-server-url')
+        const realMusicDir = await window.electronAPI.ipcRenderer.invoke('music:get-dir')
         await window.electronAPI.fileAPI.ensureDir(realMusicDir)
 
         let userTracks: Track[] = []
         try {
-          const files = await window.electronAPI.invoke('readdir', realMusicDir)
+          const files = await window.electronAPI.ipcRenderer.invoke('readdir', realMusicDir)
           userTracks = files
             .filter((f: string) => /\.(mp3|wav|ogg|m4a)$/i.test(f))
             .map((f: string) => ({
@@ -196,9 +196,9 @@ export default function MusicPlayerBar() {
     if (result.canceled || !result.filePaths.length) return
 
     try {
-      const realMusicDir = await window.electronAPI.invoke('music:get-dir')
-      const musicServerUrl = await window.electronAPI.invoke('music:get-server-url')
-      const copyResults = await window.electronAPI.invoke('music:add-files', result.filePaths, realMusicDir)
+      const realMusicDir = await window.electronAPI.ipcRenderer.invoke('music:get-dir')
+      const musicServerUrl = await window.electronAPI.ipcRenderer.invoke('music:get-server-url')
+      const copyResults = await window.electronAPI.ipcRenderer.invoke('music:add-files', result.filePaths, realMusicDir)
 
       for (const res of copyResults) {
         if (res.success) {
@@ -229,7 +229,7 @@ export default function MusicPlayerBar() {
     }
 
     try {
-      const result = await window.electronAPI.invoke('music:delete-file', track.dir, track.filename)
+      const result = await window.electronAPI.ipcRenderer.invoke('music:delete-file', track.dir, track.filename)
       if (result.success) {
         setTracks(prev => prev.filter(t => t.id !== track.id))
         if (currentTrack?.id === track.id) {

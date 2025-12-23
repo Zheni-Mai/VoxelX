@@ -411,6 +411,10 @@ export default function ProfilesPage() {
                     <img src={ModrinthLogo} alt="Modrinth" className="w-full h-full object-cover" />
                     <Box size={32} className="text-white drop-shadow-lg" />
                   </motion.button>  
+                  <span className="absolute right-full top-1/2 -translate-y-1/2 mr-3 whitespace-nowrap bg-black/90 text-white text-sm font-medium px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 backdrop-blur-sm border border-white/10 shadow-xl">
+                    Modrinth
+                    <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-l-8 border-l-black/90 border-y-8 border-y-transparent" />
+                  </span>
                 </div>
                 <div className="relative group">
                   <motion.button

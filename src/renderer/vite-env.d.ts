@@ -78,6 +78,8 @@ declare global {
       }
 
       invoke: (channel: string, ...args: any[]) => Promise<any>
+      getOnlineApiUrl: () => string
+      getOnlineCount: () => Promise<string>,
 
       toast: {
         success: (message: string, title?: string) => void
@@ -117,6 +119,8 @@ declare global {
         ready: () => void
       }
 
+      getMojangUUID: (username: string) => Promise<string>;
+
       profileAPI: {
         getCurrentProfile: () => Promise<Profile | null>
         setCurrentProfile: (profileName: string) => Promise<void>
@@ -133,6 +137,16 @@ declare global {
         getOptiFineVersions: (gameVersion: string) => Promise<string[]>
         selectGameDirectory: () => Promise<string | null>
         openGameDirectory: (path: string) => Promise<boolean>
+        getWorldDetails: (gameDirectory: string) => Promise<Array<{
+          folderName: string
+          name: string
+          lastPlayed: number
+          size: string
+          icon?: string
+          levelDatBuffer: number[] | null
+        }>>
+        deleteWorld: (data: { gameDirectory: string; folderName: string }) => Promise<boolean>
+        openSavesFolder: (gameDirectory: string) => Promise<boolean>
         getModList: (gameDirectory: string) => Promise<Array<{
           filename: string
           enabled: boolean
@@ -169,6 +183,13 @@ declare global {
         ) => Promise<{ hits: ModrinthProject[]; total_hits: number }>
         getModrinthProject: (id: string) => Promise<ModrinthProjectDetails | null>
         getWorldList: (gameDirectory: string) => Promise<string[]>,
+        readFile: (filePath: string) => Promise<Uint8Array>,
+        stat: (filePath: string) => Promise<{
+          isDirectory: boolean
+          size: number
+          mtime: number
+        }>,
+        rmdir: (dir: string, options?: { recursive?: boolean }) => Promise<boolean>,
         downloadModrinthFile: (
           fileUrl: string,
           fileName: string,
@@ -183,7 +204,7 @@ declare global {
             fileId?: string
           },
           subFolder?: 'mods' | 'shaderpacks' | 'resourcepacks' | 'datapacks',
-          worldName?: string  // chỉ dùng khi cài datapack vào world cụ thể
+          worldName?: string 
         ) => Promise<boolean>,
         createTempWorldDatapackCopy: (worldName: string, filename: string) => Promise<string | null>,
         exportProfile: (data: { gameDirectory: string; profileName: string }) => Promise<{ success: boolean; filePath?: string; message?: string }>
@@ -288,6 +309,7 @@ declare global {
       shell: {
         showItemInFolder: (path: string) => Promise<boolean>
         openPath: (path: string) => Promise<string>
+        openExternal: (url: string) => Promise<boolean>
       }
 
       fileAPI: {

@@ -3,6 +3,7 @@ import {ipcMain, net, dialog, shell, BrowserWindow } from 'electron'
 import path from 'path'
 import fsPromises from 'fs/promises'
 import { readdir, stat } from 'fs/promises'
+import { existsSync } from 'fs'
 import { promisify } from 'util'
 import archiver from 'archiver'
 import { exec } from 'child_process'
@@ -35,8 +36,6 @@ export async function listProfiles(appDataPath: string): Promise<Profile[]> {
 }
 
 export function registerProfileHandlers(mainWindow: BrowserWindow) {
-
-  
 
     const sendToRenderer = (channel: string, ...args: any[]) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1432,6 +1431,104 @@ export function registerProfileHandlers(mainWindow: BrowserWindow) {
         return { success: false, message: err.message || 'Lỗi không xác định' }
       }
     })
+
+    // Thêm vào cuối registerProfileHandlers trong profile.ts
+    ipcMain.handle('profile:getWorldDetails', async (_event, gameDirectory: string) => {
+
+      const savesDir = path.join(gameDirectory, 'saves')
+      try {
+        const entries = await readdir(savesDir, { withFileTypes: true })
+        const worlds = await Promise.all(
+          entries
+            .filter(e => e.isDirectory())
+            .map(async (entry) => {
+              const worldDir = path.join(savesDir, entry.name)
+              const levelDatPath = path.join(worldDir, 'level.dat')
+              const iconPath = path.join(worldDir, 'icon.png')
+
+              let lastPlayed = (await stat(worldDir)).mtime.getTime()
+              let iconBase64: string | undefined = undefined
+              let levelDatBuffer: Uint8Array | null = null
+
+              // Đọc icon
+              try {
+                if (existsSync(iconPath)) {
+                  const buffer = await readFile(iconPath)
+                  iconBase64 = `data:image/png;base64,${buffer.toString('base64')}`
+                }
+              } catch {}
+
+              // Đọc level.dat (trả buffer để renderer parse bằng nbt)
+              try {
+                levelDatBuffer = await readFile(levelDatPath)
+              } catch {}
+
+              // Tính size thư mục
+              let totalSize = 0
+              const calcSize = async (dir: string) => {
+                const files = await readdir(dir, { withFileTypes: true })
+                for (const file of files) {
+                  const fp = path.join(dir, file.name)
+                  if (file.isDirectory()) {
+                    await calcSize(fp)
+                  } else {
+                    totalSize += (await stat(fp)).size
+                  }
+                }
+              }
+              await calcSize(worldDir)
+
+              const formatSize = (bytes: number): string => {
+                const units = ['B', 'KB', 'MB', 'GB']
+                let size = bytes
+                let i = 0
+                while (size >= 1024 && i < units.length - 1) {
+                  size /= 1024
+                  i++
+                }
+                return `${size.toFixed(1)} ${units[i]}`
+              }
+
+              return {
+                folderName: entry.name,
+                name: entry.name, // tạm dùng folderName, renderer sẽ thay bằng LevelName
+                lastPlayed,
+                size: formatSize(totalSize),
+                icon: iconBase64,
+                levelDatBuffer: levelDatBuffer ? Array.from(levelDatBuffer) : null, // chuyển Uint8Array → Array để gửi qua IPC
+              }
+            })
+        )
+
+        return worlds.sort((a: any, b: any) => b.lastPlayed - a.lastPlayed)
+      } catch (err) {
+        console.error('Lỗi getWorldDetails:', err)
+        return []
+      }
+    })
+
+    ipcMain.handle('profile:deleteWorld', async (_event, { gameDirectory, folderName }: { gameDirectory: string; folderName: string }) => {
+
+      const worldPath = path.join(gameDirectory, 'saves', folderName)
+      try {
+        await rm(worldPath, { recursive: true, force: true })
+        return true
+      } catch (err) {
+        console.error('Lỗi xóa world:', err)
+        return false
+      }
+    })
+
+    ipcMain.handle('profile:openSavesFolder', async (_event, gameDirectory: string) => {
+      const savesDir = path.join(gameDirectory, 'saves')
+      try {
+        await shell.openPath(savesDir)
+        return true
+      } catch {
+        return false
+      }
+    })
+
 } 
 
 

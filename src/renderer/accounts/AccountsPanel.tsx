@@ -159,31 +159,47 @@ export default function AccountsPanel({ isOpen, onClose, currentPlayer, setCurre
     }
 
   const createOffline = async () => {
-    if (!nameInput.trim()) return
-    if (accounts.some(a => a.name.toLowerCase() === nameInput.trim().toLowerCase())) {
-      window.toast.warning('Tên này đã tồn tại!', 'Cảnh báo')
-      return
+    if (!nameInput.trim()) return;
+    const trimmedName = nameInput.trim();
+
+    if (accounts.some(a => a.name.toLowerCase() === trimmedName.toLowerCase())) {
+      window.toast.warning('Tên này đã tồn tại!', 'Cảnh báo');
+      return;
     }
 
-    const uuid = crypto.randomUUID().replace(/-/g, '')
-    const newAcc: Account = {
-      id: Date.now().toString(),
-      name: nameInput.trim(),
-      uuid,
-      type: 'offline',
-      lastUsed: Date.now()
+    try {
+      // Gọi main process để lấy UUID (chính thức nếu có, offline nếu không)
+      const uuid = await window.electronAPI.getMojangUUID(trimmedName);
+
+      if (!uuid) {
+        window.toast.error('Không thể tạo UUID cho tài khoản này', 'Lỗi');
+        return;
+      }
+
+      const newAcc: Account = {
+        id: `offline-${uuid.replace(/-/g, '')}`, // hoặc chỉ dùng uuid làm id
+        name: trimmedName,
+        uuid: uuid.replace(/-/g, ''), // lưu dạng không gạch
+        type: 'offline',
+        lastUsed: Date.now()
+      };
+
+      const appDataPath = await window.electronAPI.profileAPI.getAppDataPath();
+      const currentList = await window.electronAPI.accountAPI.getAccounts(appDataPath);
+      const updated = [newAcc, ...currentList.filter(a => a.id !== newAcc.id)];
+
+      await window.electronAPI.accountAPI.saveAccounts({ appDataPath, accounts: updated });
+      setAccounts(updated);
+      setCurrentPlayer(newAcc);
+      setNameInput('');
+      setShowForm(false);
+
+      window.toast.success(`Đã tạo tài khoản offline: ${trimmedName}`, 'Thành công');
+    } catch (err) {
+      console.error('Lỗi tạo tài khoản offline:', err);
+      window.toast.error('Lỗi khi tạo tài khoản offline', 'Lỗi');
     }
-
-    const appDataPath = await window.electronAPI.profileAPI.getAppDataPath()
-    const currentList = await window.electronAPI.accountAPI.getAccounts(appDataPath)
-    const updated = [newAcc, ...currentList.filter(a => a.id !== newAcc.id)]
-
-    await window.electronAPI.accountAPI.saveAccounts({ appDataPath, accounts: updated })
-    setAccounts(updated)
-    setCurrentPlayer(newAcc)
-    setNameInput('')
-    setShowForm(false)
-  }
+  };
 
   const selectAccount = async (acc: Account) => {
     const updatedAccounts = accounts.map(a => ({

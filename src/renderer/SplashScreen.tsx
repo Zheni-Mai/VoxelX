@@ -12,7 +12,7 @@ export default function SplashScreen({ onReady }: SplashScreenProps) {
   const [videoEnded, setVideoEnded] = useState(false)
   const [progress, setProgress] = useState(0)
   const [status, setStatus] = useState('Đang khởi động...')
-  const [version] = useState('0.0.9')
+  const [version] = useState('0.0.11')
 
   useEffect(() => {
     if (!videoEnded) return

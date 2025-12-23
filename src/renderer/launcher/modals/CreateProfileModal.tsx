@@ -276,6 +276,8 @@ export default function CreateProfileModal({ isOpen, onClose, onCreate }: Props)
 
     try {
       await window.electronAPI.profileAPI.saveProfile({ appDataPath, profile })
+      window.dispatchEvent(new Event('profiles-updated'))
+      window.toast.success(`Đã tạo profile: ${profile.name}`, 'Profile')
       onCreate(profile)
       onClose()
       resetForm()

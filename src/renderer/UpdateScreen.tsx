@@ -2,8 +2,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Download, CheckCircle, AlertCircle, RefreshCw, X } from 'lucide-react'
-import BackgroundLogo from '@/assets/icons/logo.png' // Dùng chính logo làm nền
-
+import BackgroundLogo from '@/assets/icons/logo.png' 
 type UpdateState = 'checking' | 'downloading' | 'downloaded' | 'error'
 
 export default function UpdateScreen() {

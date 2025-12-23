@@ -6,7 +6,8 @@ import { useState, useEffect } from 'react'
 import { Account } from '../../main/types/account'
 import PlayCard from '../components/PlayCard'
 import ChangelogHistoryModal from './modal/ChangelogHistoryModal'
-import LatestVersionCard from './card/LatestVersionCard'
+import LatestVersionCard from './card/LatestMinecraftTab'
+import ChangelogTabs from './tabs/ChangelogTabs'
 import ServicesCarouselCard from '../ads/ServicesCarouselCard'
 
 interface ChangelogEntry {
@@ -63,23 +64,25 @@ export default function ChangelogPage({
   const [isDropupOpen, setIsDropupOpen] = useState(false)
   const [selectedServer, setSelectedServer] = useState<ServerInfo | null>(null)
   const [modsModalProfile, setModsModalProfile] = useState<any>(null)
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   
-useEffect(() => {
-  const handleOpenModsModal = (e: Event) => {
-    const customEvent = e as CustomEvent
-    setModsModalProfile(customEvent.detail.profile)
-  }
+  useEffect(() => {
+    const handleOpenModsModal = (e: Event) => {
+      const customEvent = e as CustomEvent
+      setModsModalProfile(customEvent.detail.profile)
+    }
 
-  window.addEventListener('open-mods-modal', handleOpenModsModal)
+    window.addEventListener('open-mods-modal', handleOpenModsModal)
 
-  return () => {
-    window.removeEventListener('open-mods-modal', handleOpenModsModal)
-  }
-}, [])
+    return () => {
+      window.removeEventListener('open-mods-modal', handleOpenModsModal)
+    }
+  }, [])
 
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Fetch Minecraft versions
         const manifestRes = await fetch('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json')
         const manifest = await manifestRes.json()
         const versions = manifest.versions.slice(0, 30)
@@ -102,28 +105,18 @@ useEffect(() => {
                 type: v.type,
                 date: new Date(v.releaseTime).toLocaleDateString('vi-VN'),
                 description: 'Cập nhật mới',
-                url: '#'
+                url: `https://www.minecraft.net/en-us/article/minecraft-${v.id.replace(/\./g, '-')}-released`
               }
             }
           })
         )
         setChangelogs(logs)
 
-        const path = await window.electronAPI.profileAPI.getAppDataPath()
-        const profiles = await window.electronAPI.profileAPI.listProfiles(path)
-        setRecentProfiles(profiles.slice(0, 6))
-
+        // Fetch server list
         const serverList = [
-          'aemine.vn',
-          'sgp.kingmc.vn',
-          'shibamc.online',
-          'play.cubecraft.net',
-          'play.mineahihi.net',
-          "mp.mc-complex.com",
-          'mp.earthmc.net',
-          "aquamc.site",
-          'play.mineland.net',
-          'liemvn.com',
+          'aemine.vn', 'sgp.kingmc.vn', 'shibamc.online', 'play.cubecraft.net',
+          'play.mineahihi.net', "mp.mc-complex.com", 'mp.earthmc.net',
+          "aquamc.site", 'play.mineland.net', 'liemvn.com',
         ]
 
         const serverData = await Promise.all(
@@ -185,10 +178,11 @@ useEffect(() => {
         <div className="mx-auto max-w-full">
           <div className="pr-8 lg:pr-12 xl:pr-66 2xl:pr-112">
             <div className="max-w-4xl">
-              <LatestVersionCard
+              <ChangelogTabs
                 latestLog={latestLog}
-                onOpenHistory={() => setIsDropupOpen(true)}
+                allChangelogs={changelogs}
                 isLoading={changelogs.length === 0}
+                onOpenHistory={() => setIsHistoryModalOpen(true)}
               />
             </div>
 
@@ -201,8 +195,8 @@ useEffect(() => {
       </main>
 
       <ChangelogHistoryModal
-        isOpen={isDropupOpen}
-        onClose={() => setIsDropupOpen(false)}
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
         changelogs={changelogs}
       />
 

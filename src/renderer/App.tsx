@@ -20,6 +20,10 @@ import AboutPage from './about/AboutPage'
 import Sidebar from './components/Sidebar';
 import { AnimationProvider } from './context/AnimationContext'
 import { MotionDiv } from './utils/motion'
+import CreateProfileModal from './launcher/modals/CreateProfileModal'
+import ImportModpackModal from './launcher/modals/ImportModpackModal'
+import UniversalBrowserModal from './launcher/modals/ResourceBrowserModal'
+import RoomModal from './components/RoomModal';
 
 import { 
   Home, 
@@ -39,7 +43,7 @@ import UpdateScreen from './UpdateScreen'
 import MusicPlaylistModal from './components/MusicPlaylistModal'
 import ResourceManagerModal from './launcher/modals/ResourceManagerModal'
 
-type Page = 'home' | 'profile' | 'lan' | 'settings' | 'about'
+type Page = 'home' | 'profile' | 'settings' | 'about'
 
 const sounds = {
   update: new Audio(UpdateSound)
@@ -73,7 +77,7 @@ export default function App() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const { success, error, warning, info, toasts, removeToast } = useToast()
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
-  const [currentLauncherVersion, setCurrentLauncherVersion] = useState('0.0.9')
+  const [currentLauncherVersion, setCurrentLauncherVersion] = useState('0.0.11')
   const [animationsEnabled, setAnimationsEnabled] = useState(true)
   const [showMusicPlaylist, setShowMusicPlaylist] = useState(false)
   const [musicTracks, setMusicTracks] = useState<any[]>([])
@@ -81,6 +85,10 @@ export default function App() {
   const [isMusicPlaying, setIsMusicPlaying] = useState(false)
   const [isResourceManagerOpen, setIsResourceManagerOpen] = useState(false)
   const [resourceManagerProfile, setResourceManagerProfile] = useState<Profile | null>(null)
+  const [createProfileOpen, setCreateProfileOpen] = useState(false)
+  const [importModpackOpen, setImportModpackOpen] = useState(false)
+  const [universalBrowserOpen, setUniversalBrowserOpen] = useState(false)
+  const [roomModalOpen, setRoomModalOpen] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search)
   const isSplash = urlParams.get('mode') === 'splash'
@@ -108,6 +116,34 @@ export default function App() {
   const handleProfileCreated = () => {
     setProfilesVersion(prev => prev + 1)
   }
+
+  useEffect(() => {
+    const handleOpenLanModal = () => setRoomModalOpen(true);
+    window.addEventListener('open-lan-play-modal', handleOpenLanModal);
+    return () => window.removeEventListener('open-lan-play-modal', handleOpenLanModal);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenCreateProfile = () => {
+      setCreateProfileOpen(true)
+    }
+
+    window.addEventListener('open-create-profile-modal', handleOpenCreateProfile)
+    return () => window.removeEventListener('open-create-profile-modal', handleOpenCreateProfile)
+  }, [])
+
+  useEffect(() => {
+    const handleOpenImport = () => setImportModpackOpen(true)
+    const handleOpenUniversal = () => setUniversalBrowserOpen(true)
+
+    window.addEventListener('open-import-modpack-modal', handleOpenImport)
+    window.addEventListener('open-universal-browser-modal', handleOpenUniversal)
+
+    return () => {
+      window.removeEventListener('open-import-modpack-modal', handleOpenImport)
+      window.removeEventListener('open-universal-browser-modal', handleOpenUniversal)
+    }
+  }, [])
   
   useEffect(() => {
     const handleOpenResourceManager = (e: Event) => {
@@ -248,17 +284,9 @@ export default function App() {
   useEffect(() => {
     const fetchOnlineCount = async () => {
       try {
-        const res = await fetch('https://foxstudio.site/api/online.php?t=' + Date.now(), {
-          cache: 'no-cache'
-        })
-        if (!res.ok) throw new Error('HTTP ' + res.status)
-        
-        const data = await res.json()
-        if (data.formatted) {
-          setOnlineCount(data.formatted)
-        } else {
-          setOnlineCount('Lỗi server')
-        }
+        setIsLoadingOnline(true)
+        const count = await window.electronAPI.getOnlineCount()
+        setOnlineCount(count)
       } catch (err) {
         console.warn('Không lấy được số người online:', err)
         setOnlineCount('Offline')
@@ -570,6 +598,35 @@ export default function App() {
         />
       )}
 
+      <CreateProfileModal 
+        isOpen={createProfileOpen} 
+        onClose={() => setCreateProfileOpen(false)}
+        onCreate={async () => {
+          // Reload profiles sau khi tạo xong
+          try {
+            const path = await window.electronAPI.profileAPI.getAppDataPath()
+            const updated = await window.electronAPI.profileAPI.listProfiles(path)
+            setProfiles(updated) // nếu bạn có state profiles ở App
+          } catch (err) {
+            console.error('Lỗi reload profiles sau tạo:', err)
+          }
+        }}
+      />
+
+      <ImportModpackModal 
+        isOpen={importModpackOpen} 
+        onClose={() => setImportModpackOpen(false)} 
+      />
+
+      {universalBrowserOpen && (
+        <UniversalBrowserModal
+          isOpen={universalBrowserOpen}
+          onClose={() => setUniversalBrowserOpen(false)}
+          profiles={profiles}
+          currentProfile={profiles.find(p => p.isDefault)?.name}
+        />
+      )}
+
       <MusicPlaylistModal
         isOpen={showMusicPlaylist}
         onClose={() => setShowMusicPlaylist(false)}
@@ -586,6 +643,20 @@ export default function App() {
           window.dispatchEvent(new CustomEvent('music-delete-track', { detail: track }))
         }}
       />
+      {roomModalOpen && (
+        <RoomModal
+          open={roomModalOpen}
+          onClose={() => setRoomModalOpen(false)}
+          onRoomCreated={(roomId) => {
+            console.log('Room created:', roomId);
+            // Có thể thêm toast: window.toast.success(`Phòng ${roomId} đã tạo!`)
+          }}
+          onRoomJoined={(roomId) => {
+            console.log('Joined room:', roomId);
+            // Có thể thêm toast
+          }}
+        />
+      )}
       {editModalOpen && editingProfile && (
         <SettingProfileModal
         isOpen={editModalOpen}

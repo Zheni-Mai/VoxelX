@@ -13,9 +13,12 @@ import { getAppDataPath } from './utils'
 import { registerLauncherHandlers } from './handlers/launcher'
 import { CustomMinecraftLauncher } from './launcher'
 import { javaManager } from './launcher/javaManager'
-import { Tray, Menu, nativeImage } from 'electron'
+import { Tray, net, Menu, nativeImage } from 'electron'
 import { registerInstanceHandlers } from './handlers/instances'
 import { registerUpdateHandlers, setUpdaterWindows } from './handlers/update'
+import { resolveSafePath, getSafeRoot } from './safePath'
+import * as DiscordRPC from 'discord-rpc'
+import { Server } from 'socket.io';
 
 const execAsync = promisify(exec)
 const {
@@ -31,6 +34,7 @@ const {
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { registerGlobalHandlers } from './handlers'
 import { registerAccountHandlers } from './handlers/account'
+import { createRoom, joinRoom, dissolveRoom, handleWebRTCSignaling, activeProxies, getCurrentRoomId, getRoomParticipants } from './webrtc-tcp-proxy';
 
 let mainWindow: BrowserWindow | null = null
 let splashWindow: BrowserWindow | null = null
@@ -41,13 +45,63 @@ let updateWindow: BrowserWindow | null = null
 let createUpdateWindowFromUpdater: () => BrowserWindow
 let tray: Tray | null = null
 let musicServerPort: number = 0;
+
+const DISCORD_CLIENT_ID = '1441334202518999091'
+const ONLINE_TRACKING_API='https://api.foxstudio.site/online.php'
+const ONLINE_API_KEY='day_la_mot_chuoi_bi_mat_rat_dai_va_kho_doan_abc123XYZ789!'
+
+let rpc: DiscordRPC.Client | null = null
+let rpcReady = false
+
+const initDiscordRPC = async () => {
+  if (!DISCORD_CLIENT_ID) {
+    console.log('Discord RPC bị tắt vì chưa cấu hình DISCORD_CLIENT_ID trong .env')
+    return
+  }
+
+  try {
+    rpc = new DiscordRPC.Client({ transport: 'ipc' })
+
+    rpc.on('ready', () => {
+      console.log('Discord Rich Presence đã kết nối thành công!')
+      rpcReady = true
+
+      rpc?.setActivity({
+        details: 'Đang sử dụng VoxelX Launcher',
+        state: 'Tham gia ngay',
+        largeImageKey: 'logo',
+        largeImageText: 'VoxelX - Next Gen Minecraft Launcher',
+        smallImageKey: 'play',
+        smallImageText: 'Đang trực tuyến',
+        startTimestamp: Date.now(),
+        instance: false,
+        buttons: [
+          {
+            label: 'Tải VoxelX',
+            url: 'https://foxstudio.site'
+          }
+        ]
+      })
+    })
+
+    await rpc.login({ clientId: DISCORD_CLIENT_ID })
+  } catch (err) {
+    console.warn('Không thể kết nối Discord RPC (Discord chưa mở hoặc lỗi?):', err)
+  }
+}
+
+const destroyRPC = () => {
+  if (rpc) {
+    rpc.destroy().catch(() => {})
+    rpc = null
+  }
+  rpcReady = false
+}
 //autoUpdater.forceDevUpdateConfig = false
 
 ipcMain.handle('getAppDataPath', async () => {
   const appData = app.getPath('appData')
-  const dir = process.env.NODE_ENV === 'development'
-    ? 'C:/VoxelX-test'
-    : path.join(appData, '.VoxelX')
+  const dir = path.join(appData, '.VoxelX')
 
   await mkdir(dir, { recursive: true })
   console.log('AppDataPath trả về:', dir)
@@ -76,14 +130,87 @@ const getClientUUID = async (): Promise<string> => {
 }
 let onlineInterval: NodeJS.Timeout | null = null
 
+ipcMain.handle('get-client-uuid', async () => {
+  return await getClientUUID()
+})
+
+async function getOnlineCount(): Promise<string> {
+  const apiUrl = ONLINE_TRACKING_API
+  
+  try {
+    const request = net.request({
+      method: 'GET',
+      url: apiUrl + '?t=' + Date.now(),
+    })
+
+    return new Promise((resolve, reject) => {
+      request.on('response', (response) => {
+        let data = ''
+        response.on('data', (chunk) => {
+          data += chunk
+        })
+        response.on('end', () => {
+          if (response.statusCode !== 200) {
+            resolve('Offline')
+            return
+          }
+          try {
+            const json = JSON.parse(data)
+            if (json.formatted) {
+              resolve(json.formatted)
+            } else if (json.online !== undefined) {
+              const count = json.online
+              const formatted = count >= 1000 
+                ? (count / 1000).toFixed(1).replace('.0', '') + 'k'
+                : count.toString()
+              resolve(formatted + ' Play with VoxelX')
+            } else {
+              resolve('Offline')
+            }
+          } catch {
+            resolve('Offline')
+          }
+        })
+      })
+
+      request.on('error', () => {
+        resolve('Offline')
+      })
+
+      request.end()
+    })
+  } catch {
+    return 'Offline'
+  }
+}
+
+ipcMain.handle('get-online-count', async () => {
+  return await getOnlineCount()
+})
+
 const startOnlineTracking = async (username: string = 'Player') => {
   const uuid = await getClientUUID()
+  const apiUrl = ONLINE_TRACKING_API
+  const apiKey = ONLINE_API_KEY
+  if (!apiUrl) {
+    return
+  }
+
+  if (!apiKey) {
+  }
 
   const sendHeartbeat = async () => {
     try {
-      await fetch('https://foxstudio.site/api/online.php', {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey
+      }
+
+      await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ uuid, username })
       })
     } catch (err) {
@@ -91,8 +218,7 @@ const startOnlineTracking = async (username: string = 'Player') => {
     }
   }
 
-  await sendHeartbeat() 
-
+  await sendHeartbeat()
   if (onlineInterval) clearInterval(onlineInterval)
   onlineInterval = setInterval(sendHeartbeat, 30_000)
 }
@@ -112,25 +238,66 @@ ipcMain.handle('get-system-ram', () => {
   }
 })
 
-ipcMain.handle('read-file', async (_event, filePath: string) => {
-  try {
-    const data = await readFile(filePath, 'utf-8')
-    return data
-  } catch (err: any) {
-    if (err.code === 'ENOENT') {
-      return null 
+ipcMain.handle('write-file', async (_event, relativeDir: string, filename: string, content: string) => {
+  if (
+    typeof filename !== 'string' ||
+    filename.trim() === '' ||
+    filename.includes('/') ||
+    filename.includes('\\') ||
+    filename.includes('..') ||
+    filename.includes('\0') ||
+    filename.startsWith('.')
+  ) {
+    throw new Error('Tên file không hợp lệ');
+  }
+
+  let safeDir: string;
+  if (relativeDir === '' || relativeDir.trim() === '') {
+    safeDir = await getSafeRoot();
+  } else {
+    const resolved = await resolveSafePath(relativeDir);
+    if (!resolved) {
+      throw new Error('Thư mục không hợp lệ hoặc truy cập bị từ chối');
     }
-    throw err 
+    safeDir = resolved;
+  }
+
+  const fullPath = path.join(safeDir, filename.trim());
+
+  const root = await getSafeRoot();
+  const resolvedRoot = path.resolve(root);
+  if (!path.resolve(fullPath).startsWith(resolvedRoot + path.sep)) {
+    throw new Error('Truy cập bị từ chối');
+  }
+
+  try {
+    await mkdir(safeDir, { recursive: true });
+    await writeFile(fullPath, content, 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('Lỗi ghi file:', err);
+    throw new Error('Không thể ghi file');
+  }
+});
+
+ipcMain.handle('read-file', async (_event, relativePath: string) => {
+  const safePath = await resolveSafePath(relativePath)
+  if (!safePath) {
+    throw new Error('Truy cập file bị từ chối')
+  }
+
+  try {
+    return await readFile(safePath, 'utf-8')
+  } catch (err: any) {
+    if (err.code === 'ENOENT') return null
+    throw err
   }
 })
 
-ipcMain.handle('write-file', async (_event, dir: string, filename: string, content: string) => {
-  await mkdir(dir, { recursive: true })
-  await writeFile(path.join(dir, filename), content)
-})
-
-ipcMain.handle('ensure-dir', async (_event, dir: string) => {
-  await mkdir(dir, { recursive: true })
+ipcMain.handle('ensure-dir', async (_event, relativeDir: string) => {
+  const safeDir = await resolveSafePath(relativeDir)
+  if (!safeDir) throw new Error('Truy cập bị từ chối')
+  await mkdir(safeDir, { recursive: true })
 })
 
 ipcMain.handle('get-drives', async () => {
@@ -264,12 +431,28 @@ ipcMain.handle('dialog:showSaveDialog', async (_event, options: Electron.SaveDia
   return await dialog.showSaveDialog(mainWindow, options)
 })
 
-ipcMain.handle('shell:showItemInFolder', async (_event, fullPath: string) => {
-  return shell.showItemInFolder(fullPath)  
+ipcMain.handle('shell:showItemInFolder', async (_event, relativePath: string) => {
+  const safePath = await resolveSafePath(relativePath)
+  if (!safePath) return false
+  return shell.showItemInFolder(safePath)
 })
 
-ipcMain.handle('shell:openPath', async (_event, path: string) => {
-  return shell.openPath(path)
+ipcMain.handle('shell:openPath', async (_event, relativePath: string) => {
+  const safePath = await resolveSafePath(relativePath)
+  if (!safePath) return false
+  return shell.openPath(safePath)
+})
+
+ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+    return false
+  }
+  try {
+    await shell.openExternal(url)
+    return true
+  } catch {
+    return false
+  }
 })
 
 ipcMain.on('open-log-window', () => {
@@ -291,22 +474,31 @@ ipcMain.handle('java:list', async () => {
   return await javaManager.listAvailableJavas()
 })
 
-ipcMain.handle('readdir', async (_event, dirPath: string) => {
+ipcMain.handle('readdir', async (_event, relativePath: string) => {
+  const safePath = await resolveSafePath(relativePath)
+  if (!safePath) return []
   try {
-    return await readdir(dirPath)
+    const entries = await readdir(safePath)
+    return entries
   } catch {
     return []
   }
 })
 
-ipcMain.handle('music:add-files', async (_event, filePaths: string[], musicDir: string) => {
+ipcMain.handle('music:add-files', async (_event, filePaths: string[]) => {
   const results: Array<{ success: boolean; filename: string; message?: string }> = []
+
+  const musicDir = await resolveSafePath('music')
+  if (!musicDir) {
+    throw new Error('Access denied')
+  }
 
   for (let filePath of filePaths) {
     try {
       let filename = basename(filePath)
       let destPath = join(musicDir, filename)
       let counter = 1
+
       while (existsSync(destPath)) {
         const ext = extname(filename)
         const nameWithoutExt = basename(filename, ext)
@@ -334,18 +526,56 @@ ipcMain.handle('music:add-files', async (_event, filePaths: string[], musicDir: 
   return results
 })
 
-ipcMain.handle('copy-file', async (_event, source: string, dest: string) => {
-  await mkdir(path.dirname(dest), { recursive: true })
-  await copyFile(source, dest)
+ipcMain.handle('copy-file', async (_event, sourceRelative: string, destRelative: string) => {
+  const safeSource = await resolveSafePath(sourceRelative)
+  const safeDest = await resolveSafePath(destRelative)
+
+  if (!safeSource || !safeDest) {
+    throw new Error('Truy cập bị từ chối')
+  }
+
+  const root = await getSafeRoot()
+  const resolvedRoot = path.resolve(root)
+  const resolvedDest = path.resolve(safeDest)
+  if (!resolvedDest.startsWith(resolvedRoot + path.sep)) {
+    throw new Error('Đích không hợp lệ')
+  }
+
+  await mkdir(path.dirname(safeDest), { recursive: true })
+  await copyFile(safeSource, safeDest)
 })
 
-ipcMain.handle('unlink', async (_event, filePath: string) => {
-  await unlink(filePath)
+ipcMain.handle('unlink', async (_event, relativePath: string) => {
+  const safePath = await resolveSafePath(relativePath)
+  if (!safePath) throw new Error('Truy cập bị từ chối')
+  const allowedSubdirs = ['instances', 'music', 'cache', 'themes', 'mods', 'resourcepacks']
+  const relative = path.relative(await getSafeRoot(), safePath)
+  const firstDir = relative.split(path.sep)[0]
+
+  if (!allowedSubdirs.includes(firstDir)) {
+    throw new Error('Không được xóa file ở thư mục này')
+  }
+
+  await unlink(safePath)
 })
 
-ipcMain.handle('exists', async (_event, filePath: string) => {
-  return existsSync(filePath)
+ipcMain.handle('exists', async (_event, relativePath: string) => {
+  const safePath = await resolveSafePath(relativePath)
+  if (!safePath) return false
+  return existsSync(safePath)
 })
+
+ipcMain.handle('create-room', async (_event, { localPort }) => {
+  return await createRoom(localPort);
+});
+
+ipcMain.handle('join-room', async (_event, { roomId, remoteHost, remotePort, username }) => {
+  await joinRoom(roomId, remoteHost, remotePort, username); 
+});
+
+ipcMain.handle('dissolve-room', (_event, roomId) => {
+  dissolveRoom(roomId);
+});
 
 ipcMain.on('window-minimize', () => mainWindow?.minimize())
 ipcMain.on('window-maximize', () => mainWindow?.maximize())
@@ -464,10 +694,8 @@ function createTray() {
   }
 
   const iconPath = getIconPath()
-  console.log('[Tray] Đang tải icon từ:', iconPath)
   let iconImage = nativeImage.createFromPath(iconPath)
   if (iconImage.isEmpty()) {
-    console.warn('[Tray] Không load được icon → tạo icon dự phòng')
     iconImage = nativeImage.createFromBuffer(
       Buffer.from(`
         <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
@@ -509,14 +737,25 @@ function createTray() {
   tray.on('click', () => mainWindow?.show())
 }
 
-ipcMain.handle('music:delete-file', async (_event, dir: string, filename: string) => {
-  const fullPath = path.join(dir, filename)
-  try {
-    await unlink(fullPath)
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err }
+ipcMain.handle('music:delete-file', async (_event, relativeFilename: string) => {
+  if (typeof relativeFilename !== 'string' || 
+      relativeFilename.includes('/') || 
+      relativeFilename.includes('\\') || 
+      relativeFilename.includes('..')) {
+    throw new Error('Tên file không hợp lệ')
   }
+
+  const musicDir = await resolveSafePath('music')
+  if (!musicDir) throw new Error('Access denied')
+
+  const safeFilePath = path.join(musicDir, relativeFilename)
+
+  if (!safeFilePath.startsWith(musicDir + path.sep)) {
+    throw new Error('Access denied')
+  }
+
+  await unlink(safeFilePath)
+  return { success: true }
 })
 
 const startMusicServer = async () => {
@@ -567,14 +806,13 @@ const startMusicServer = async () => {
   return new Promise<number>((resolve) => {
     server.listen(0, '127.0.0.1', () => {
       musicServerPort = (server.address() as any).port;
-      console.log(`Music server running at http://127.0.0.1:${musicServerPort}`);
       resolve(musicServerPort);
     });
   });
 }
 
 ipcMain.handle('music:get-server-url', () => {
-  if (musicServerPort === 0) return 'http://127.0.0.1:47321'; // fallback nếu chưa khởi động
+  if (musicServerPort === 0) return 'http://127.0.0.1:47321';
   return `http://127.0.0.1:${musicServerPort}`;
 });
 
@@ -582,6 +820,23 @@ ipcMain.handle('music:get-dir', async () => {
   const appDataPath = await getAppDataPath()
   return path.join(appDataPath, 'music')
 })
+
+ipcMain.on('webrtc:offer', (_event, payload) => handleWebRTCSignaling('webrtc:offer', payload));
+ipcMain.on('webrtc:answer', (_event, payload) => handleWebRTCSignaling('webrtc:answer', payload));
+ipcMain.on('webrtc:candidate', (_event, payload) => handleWebRTCSignaling('webrtc:candidate', payload));
+
+ipcMain.handle('webrtc:check-room', (_event, roomId: string) => {
+  const proxy = activeProxies.get(roomId); 
+  return proxy !== undefined && proxy.isHost;
+});
+
+ipcMain.handle('get-current-lan-room', () => {
+  return getCurrentRoomId();
+});
+
+ipcMain.handle('get-room-participants', (_event, roomId: string) => {
+  return getRoomParticipants(roomId);
+});
 
 app.whenReady().then(async () => {
   const updater = registerUpdateHandlers()
@@ -601,9 +856,7 @@ app.whenReady().then(async () => {
     const data = await readFile(settingsPath, 'utf-8')
     const savedSettings = JSON.parse(data)
     shouldAutoCheck = savedSettings.updater?.autoCheckOnStartup ?? true
-    console.log('[Updater] Chế độ cập nhật:', shouldAutoCheck ? 'Tự động' : 'Thủ công')
   } catch (err) {
-    console.log('[Updater] Không đọc được settings → dùng mặc định: Tự động')
   }
 
   const startApp = () => {
@@ -614,14 +867,17 @@ app.whenReady().then(async () => {
       createSplashWindow()
       registerGlobalHandlers(splashWindow!)
 
-      ipcMain.once('splash-ready', () => {
+      ipcMain.once('splash-ready', async () => {
         createMainWindow()
-        launcher = new CustomMinecraftLauncher(mainWindow!)
+        
+        const clientId = await getClientUUID()
+        launcher = new CustomMinecraftLauncher(mainWindow!, clientId)
         ;(global as any).launcher = launcher
 
         mainWindow!.once('ready-to-show', () => {
           splashWindow?.close()
           splashWindow = null
+          initDiscordRPC()
           createTray()
 
           const isAutoStart = process.argv.includes('--hidden')
@@ -649,12 +905,10 @@ app.whenReady().then(async () => {
     autoUpdater.once('update-available', () => {
       hasUpdate = true
       updateChecked = true
-      console.log('[Updater] Có bản mới → hiện UpdateScreen')
     })
 
     autoUpdater.once('update-not-available', () => {
       updateChecked = true
-      console.log('[Updater] Đã là bản mới nhất')
     })
 
     autoUpdater.once('error', (err) => {
@@ -668,7 +922,6 @@ app.whenReady().then(async () => {
     const timer = setTimeout(() => {
       if (!updateChecked) {
         updateChecked = true
-        console.log('[Updater] Timeout check update → tiếp tục khởi động')
       }
     }, 12000)
 
@@ -682,7 +935,6 @@ app.whenReady().then(async () => {
     }
     checkDone()
   } else {
-    console.log('[Updater] Tự động cập nhật bị tắt → vào thẳng launcher')
     startApp()
   }
 })
@@ -700,9 +952,11 @@ app.on('activate', () => {
 
 app.on('window-all-closed', () => {
   stopOnlineTracking()
+  destroyRPC()
   if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('before-quit', () => {
   stopOnlineTracking()
+  destroyRPC()
 })

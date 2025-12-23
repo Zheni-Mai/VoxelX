@@ -1,17 +1,25 @@
 
 //main/handlers/launcher.ts
 import {ipcMain, net, BrowserWindow } from 'electron'
-import { CustomMinecraftLauncher } from '../launcher.js'
 import { Account } from '../types'
-let launcher: CustomMinecraftLauncher | null = null
+
+declare global {
+  var launcher: any 
+}
+
+let launcher: any = null
 
 export function registerLauncherHandlers(mainWindow: BrowserWindow) {
 
     
-    if (!launcher) {
-        launcher = new CustomMinecraftLauncher(mainWindow)
-        console.log('CustomMinecraftLauncher đã được khởi tạo!')
-    }
+    launcher = (global as any).launcher
+
+  if (!launcher) {
+    console.error('Launcher chưa được khởi tạo ở main.ts!')
+    return
+  }
+
+  console.log('Launcher handlers đã được đăng ký với clientId:', launcher.currentClientId || 'unknown')
 
     ipcMain.handle('getMinecraftVersions', async () => {
         const response = await net.fetch('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json')

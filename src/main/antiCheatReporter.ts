@@ -1,19 +1,19 @@
 // src/main/antiCheatReporter.ts
 import fs from 'fs/promises'
 import { app } from 'electron'
+import { getMonitoredServers, MonitoredServer } from './serverList';
 
-export interface MonitoredServer {
-  ip: string
-  port: number
-  name?: string
-}
 
 export class AntiCheatReporter {
-  public static readonly MONITORED_SERVERS: MonitoredServer[] = [
-    { ip: 'voxelX.enderman.cloud',     port: 50021, name: 'VoxelX Main' },
-    { ip: 'mc.voxelx.net',      port: 8080, name: 'VoxelX Hub' },
-    { ip: 'hub.voxelx.gg',      port: 8080, name: 'VoxelX Lobby' },
-  ]
+  private static monitoredServers: MonitoredServer[] = [];
+
+  static async loadServers() {
+    this.monitoredServers = await getMonitoredServers();
+  }
+
+  static get MONITORED_SERVERS(): MonitoredServer[] {
+    return this.monitoredServers;
+  }
 
   private static readonly BANNED_MOD_KEYWORDS = [
     'wurst', 'impact', 'aristois', 'meteor', 'future', 'inertia',
@@ -59,7 +59,6 @@ export class AntiCheatReporter {
     )
 
     if (!server) {
-      console.log(`[AntiCheat] Server ${serverIp} không nằm trong danh sách giám sát`)
       return false
     }
 
@@ -74,7 +73,7 @@ export class AntiCheatReporter {
 
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000) // timeout 5s
+      const timeout = setTimeout(() => controller.abort(), 5000)
 
       const res = await fetch(`http://${server.ip}:${server.port}/anticheat/report`, {
         method: 'POST',
@@ -89,7 +88,6 @@ export class AntiCheatReporter {
       clearTimeout(timeout)
 
       if (res.ok) {
-        console.log(`[AntiCheat] Đã báo cáo ${bannedMods.length} mod cấm đến ${server.ip}:${server.port}`)
         return true
       } else {
         console.warn(`[AntiCheat] Server trả về lỗi: ${res.status}`)
@@ -106,16 +104,22 @@ export class AntiCheatReporter {
   }
 
   static isMonitoredServer(ip: string): boolean {
-    return this.MONITORED_SERVERS.some(s => 
-      s.ip.toLowerCase() === ip.toLowerCase() ||
-      s.ip.toLowerCase().endsWith('.' + ip.toLowerCase())
-    )
+    const lowerIp = ip.toLowerCase();
+    return this.MONITORED_SERVERS.some(s => {
+      const lowerS = s.ip.toLowerCase();
+      return lowerS === lowerIp || 
+            lowerIp.endsWith('.' + lowerS) || 
+            lowerS.endsWith('.' + lowerIp); 
+    });
   }
 
   static getServerConfig(ip: string): MonitoredServer | undefined {
-    return this.MONITORED_SERVERS.find(s => 
-      s.ip.toLowerCase() === ip.toLowerCase() ||
-      s.ip.toLowerCase().endsWith('.' + ip.toLowerCase())
-    )
+    const lowerIp = ip.toLowerCase();
+    return this.MONITORED_SERVERS.find(s => {
+      const lowerS = s.ip.toLowerCase();
+      return lowerS === lowerIp || 
+            lowerIp.endsWith('.' + lowerS) || 
+            lowerS.endsWith('.' + lowerIp);
+    });
   }
 }
