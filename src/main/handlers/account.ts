@@ -1,6 +1,7 @@
 //main/handlers/account.ts
 import path from 'path'
 import fsPromises from 'fs/promises'
+import { existsSync } from 'fs'
 import { promisify } from 'util'
 import { v4 as uuidv4 } from 'uuid'
 import { Account } from '../types'
@@ -8,24 +9,19 @@ import { exec } from 'child_process'
 import { getAppDataPath } from '../utils'
 import {app, ipcMain, dialog, BrowserWindow } from 'electron'
 import { applyCapeToCustomSkinLoader, applyElytraToCustomSkinLoader, applySkinToCustomSkinLoader } from '../launcher/customSkinLoaderManager.js'
+import { resolveSafePath } from '../safePath'
+
 
 const execAsync = promisify(exec)
 const {
   mkdir,
   readFile,
   writeFile,
-  copyFile,
-  rm,
   unlink,
   access,
 } = fsPromises
 
-const ELYBY_CLIENT_ID = 'voxelxs'
-const ELYBY_CLIENT_SECRET = 'x57aFP2velPTM_iPgQsAXR8pE-P8ZEAVkGyEMruNl4muSFSmaBTAMlTqhAn6xYgn'
-const ELYBY_REDIRECT_URI = 'https://foxstudio.site/api/elyby-callback.html'
-const CLIENT_ID = '562d66cb-9c20-49c3-bdd8-3e101f79a8ab'; 
-const REDIRECT_URI = 'http://localhost:25565/'; 
-const LOGIN_PORT = 25565;
+
 
 function createRedirectServer(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -181,6 +177,25 @@ export function registerAccountHandlers(mainWindow: BrowserWindow) {
       }
     });
 
+    async function isSafeGameDir(gameDir: string): Promise<boolean> {
+      if (typeof gameDir !== 'string' || gameDir.trim() === '') return false
+
+      if (!path.isAbsolute(gameDir)) return false
+
+      const resolved = path.resolve(gameDir)
+      const hasMinecraft = existsSync(path.join(resolved, '.minecraft')) ||
+                          existsSync(path.join(resolved, 'gameDir')) ||
+                          resolved.includes('instances') 
+
+      const lower = resolved.toLowerCase()
+      if (lower.startsWith(process.env.WINDIR?.toLowerCase() || 'c:\\windows') ||
+          lower.startsWith('c:\\program files') ||
+          lower.startsWith('c:\\program files (x86)')) {
+        return false
+      }
+
+      return hasMinecraft
+    }
     
     ipcMain.handle('getAccounts', async (_event, appDataPath: string) => {
       const filePath = path.join(appDataPath, 'accounts.json')
@@ -477,13 +492,11 @@ export function registerAccountHandlers(mainWindow: BrowserWindow) {
       }
     })
     
-    ipcMain.handle('changeSkin', async (_event, { username, filePath, gameDir }: { username: string; filePath: string; gameDir?: string }) => {
-      try {
-        if (!gameDir) {
-          console.error('changeSkin: Thiếu gameDir!')
-          return false
-        }
+    ipcMain.handle('changeSkin', async (_event, { username, filePath, gameDir }: { username: string; filePath: string; gameDir: string }) => {
+      if (!gameDir || !/^[a-zA-Z0-9_]{3,16}$/.test(username)) return false
+      if (!await isSafeGameDir(gameDir)) return false
 
+      try {
         const success = await applySkinToCustomSkinLoader(gameDir, username, filePath)
         return success
       } catch (err) {
@@ -493,14 +506,15 @@ export function registerAccountHandlers(mainWindow: BrowserWindow) {
     })
     
     ipcMain.handle('getLocalSkinBase64', async (_event, username: string) => {
+      if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) {
+        return null // Username không hợp lệ theo chuẩn Minecraft
+      }
+
       try {
-        const appDataPath = app.getPath('appData')
-        const voxelDir = process.env.NODE_ENV === 'development'
-          ? 'C:/VoxelX-test'
-          : path.join(appDataPath, '.VoxelX')
-    
-        const skinPath = path.join(voxelDir, 'skins', `${username}.png`)
-        const buffer = await readFile(skinPath)
+        const safePath = await resolveSafePath(path.join('skins', `${username}.png`))
+        if (!safePath) return null
+
+        const buffer = await readFile(safePath)
         return `data:image/png;base64,${buffer.toString('base64')}`
       } catch (err) {
         return null
@@ -508,14 +522,14 @@ export function registerAccountHandlers(mainWindow: BrowserWindow) {
     })
     
     ipcMain.handle('checkSkinExists', async (_event, username: string) => {
+      if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) {
+        return false
+      }
+
       try {
-        const appDataPath = app.getPath('appData')
-        const voxelDir = process.env.NODE_ENV === 'development'
-          ? 'C:/VoxelX-test'
-          : path.join(appDataPath, '.VoxelX')
-    
-        const skinPath = path.join(voxelDir, 'skins', `${username}.png`)
-        await access(skinPath)
+        const safePath = await resolveSafePath(path.join('skins', `${username}.png`))
+        if (!safePath) return false
+        await access(safePath)
         return true
       } catch {
         return false
@@ -523,26 +537,29 @@ export function registerAccountHandlers(mainWindow: BrowserWindow) {
     })
     
     ipcMain.handle('getCustomSkinLoaderSkin', async (_event, { gameDir, username }: { gameDir: string; username: string }) => {
+      if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) return null
+      if (!await isSafeGameDir(gameDir)) return null
+
       try {
         const skinPath = path.join(gameDir, 'CustomSkinLoader', 'LocalSkin', 'skins', `${username}.png`)
+        const resolved = path.resolve(skinPath)
+        if (!resolved.startsWith(path.resolve(gameDir))) return null
+
         const exists = await access(skinPath).then(() => true).catch(() => false)
         if (!exists) return null
 
         const buffer = await readFile(skinPath)
         return `data:image/png;base64,${buffer.toString('base64')}`
       } catch (err) {
-        console.log('Không có skin CSL cho:', username)
         return null
       }
     })
 
-    ipcMain.handle('changeCape', async (_event, { username, filePath, gameDir }: { username: string; filePath: string; gameDir?: string }) => {
-      try {
-        if (!gameDir) {
-          console.error('changeCape: Thiếu gameDir!')
-          return false
-        }
+    ipcMain.handle('changeCape', async (_event, { username, filePath, gameDir }: { username: string; filePath: string; gameDir: string }) => {
+      if (!gameDir || !/^[a-zA-Z0-9_]{3,16}$/.test(username)) return false
+      if (!await isSafeGameDir(gameDir)) return false
 
+      try {
         const success = await applyCapeToCustomSkinLoader(gameDir, username, filePath)
         return success
       } catch (err) {
@@ -551,13 +568,11 @@ export function registerAccountHandlers(mainWindow: BrowserWindow) {
       }
     })
 
-    ipcMain.handle('changeElytra', async (_event, { username, filePath, gameDir }: { username: string; filePath: string; gameDir?: string }) => {
-      try {
-        if (!gameDir) {
-          console.error('changeElytra: Thiếu gameDir!')
-          return false
-        }
+    ipcMain.handle('changeElytra', async (_event, { username, filePath, gameDir }: { username: string; filePath: string; gameDir: string }) => {
+      if (!gameDir || !/^[a-zA-Z0-9_]{3,16}$/.test(username)) return false
+      if (!await isSafeGameDir(gameDir)) return false
 
+      try {
         const success = await applyElytraToCustomSkinLoader(gameDir, username, filePath)
         return success
       } catch (err) {
@@ -567,14 +582,15 @@ export function registerAccountHandlers(mainWindow: BrowserWindow) {
     })
 
     ipcMain.handle('getLocalCapeBase64', async (_event, username: string) => {
+      if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) {
+        return null
+      }
+
       try {
-        const appDataPath = app.getPath('appData')
-        const voxelDir = process.env.NODE_ENV === 'development'
-          ? 'C:/VoxelX-test'
-          : path.join(appDataPath, '.VoxelX')
-      
-        const capePath = path.join(voxelDir, 'capes', `${username}.png`)
-        const buffer = await readFile(capePath)
+        const safePath = await resolveSafePath(path.join('skins', `${username}_cape.png`))
+        if (!safePath) return null
+
+        const buffer = await readFile(safePath)
         return `data:image/png;base64,${buffer.toString('base64')}`
       } catch (err) {
         return null
@@ -582,14 +598,15 @@ export function registerAccountHandlers(mainWindow: BrowserWindow) {
     })
 
     ipcMain.handle('getLocalElytraBase64', async (_event, username: string) => {
+      if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) {
+        return null
+      }
+
       try {
-        const appDataPath = app.getPath('appData')
-        const voxelDir = process.env.NODE_ENV === 'development'
-          ? 'C:/VoxelX-test'
-          : path.join(appDataPath, '.VoxelX')
-      
-        const elytraPath = path.join(voxelDir, 'elytras', `${username}.png`)
-        const buffer = await readFile(elytraPath)
+        const safePath = await resolveSafePath(path.join('elytras', `${username}.png`))
+        if (!safePath) return null
+
+        const buffer = await readFile(safePath)
         return `data:image/png;base64,${buffer.toString('base64')}`
       } catch (err) {
         return null
@@ -597,32 +614,83 @@ export function registerAccountHandlers(mainWindow: BrowserWindow) {
     })
 
     ipcMain.handle('getCustomSkinLoaderCape', async (_event, { gameDir, username }: { gameDir: string; username: string }) => {
+      if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) return null
+      if (!await isSafeGameDir(gameDir)) return null
+
       try {
         const capePath = path.join(gameDir, 'CustomSkinLoader', 'LocalSkin', 'capes', `${username}.png`)
+        const resolved = path.resolve(capePath)
+        if (!resolved.startsWith(path.resolve(gameDir))) return null
+
         const exists = await access(capePath).then(() => true).catch(() => false)
         if (!exists) return null
 
         const buffer = await readFile(capePath)
         return `data:image/png;base64,${buffer.toString('base64')}`
       } catch (err) {
-        console.log('Không có cape CSL cho:', username)
         return null
       }
     })
 
     ipcMain.handle('getCustomSkinLoaderElytra', async (_event, { gameDir, username }: { gameDir: string; username: string }) => {
+      if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) return null
+      if (!await isSafeGameDir(gameDir)) return null
+
       try {
         const elytraPath = path.join(gameDir, 'CustomSkinLoader', 'LocalSkin', 'elytras', `${username}.png`)
+        const resolved = path.resolve(elytraPath)
+        if (!resolved.startsWith(path.resolve(gameDir))) return null
+
         const exists = await access(elytraPath).then(() => true).catch(() => false)
         if (!exists) return null
 
         const buffer = await readFile(elytraPath)
         return `data:image/png;base64,${buffer.toString('base64')}`
       } catch (err) {
-        console.log('Không có elytra CSL cho:', username)
         return null
       }
     })
+
+    async function getMojangUUID(username: string): Promise<string | null> {
+      try {
+        const res = await fetch(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(username)}`);
+        
+        if (res.status === 204 || res.status === 404) {
+          return generateOfflineUUID(username);
+        }
+        
+        if (!res.ok) {
+          console.warn(`Lỗi khi lấy UUID từ Mojang: ${res.status}`);
+          return generateOfflineUUID(username);
+        }
+
+        const data = await res.json();
+        if (!data.id) return generateOfflineUUID(username);
+        return data.id;
+      } catch (err) {
+        console.error('Lỗi kết nối Mojang API:', err);
+        return generateOfflineUUID(username);
+      }
+    }
+
+    function generateOfflineUUID(username: string): string {
+      const namespace = '2581d6f0-4b5e-11e9-8f44-0800200c9a66'; 
+      const name = `OfflinePlayer:${username}`;
+      
+      const crypto = require('crypto');
+      const hash = crypto.createHash('md5');
+      hash.update(Buffer.from(namespace.replace(/-/g, ''), 'hex'));
+      hash.update(Buffer.from(name, 'utf-8'));
+      const bytes = hash.digest();
+      bytes[6] = (bytes[6] & 0x0f) | 0x30; 
+      bytes[8] = (bytes[8] & 0x3f) | 0x80; 
+      
+      return bytes.toString('hex').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+    }
+
+    ipcMain.handle('get-mojang-uuid', async (_event, username: string) => {
+      return await getMojangUUID(username);
+    });
 }
 
 
@@ -631,7 +699,6 @@ export async function refreshMicrosoftToken(account: Account): Promise<Account> 
   if (!account.refreshToken) throw new Error('Không có refresh token');
 
   try {
-    // Refresh MS token trước
     const msRes = await fetch('https://login.microsoftonline.com/consumers/oauth2/v2.0/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -644,8 +711,6 @@ export async function refreshMicrosoftToken(account: Account): Promise<Account> 
     });
     const msTokens = await msRes.json();
     if (!msTokens.access_token) throw new Error('Refresh MS token fail');
-
-    // Dùng access_token mới để lấy MC token + profile mới
     const mcProfile = await getMinecraftProfile(msTokens.access_token);
 
     return {
@@ -659,4 +724,6 @@ export async function refreshMicrosoftToken(account: Account): Promise<Account> 
   } catch (err: any) {
     throw new Error('Refresh thất bại, vui lòng đăng nhập lại: ' + err.message);
   }
+
+  
 }
