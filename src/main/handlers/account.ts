@@ -21,7 +21,12 @@ const {
   access,
 } = fsPromises
 
-
+const ELYBY_CLIENT_ID = 'voxelxs'
+const ELYBY_CLIENT_SECRET = 'x57aFP2velPTM_iPgQsAXR8pE-P8ZEAVkGyEMruNl4muSFSmaBTAMlTqhAn6xYgn'
+const ELYBY_REDIRECT_URI = 'https://foxstudio.site/api/elyby-callback.html'
+const CLIENT_ID = '562d66cb-9c20-49c3-bdd8-3e101f79a8ab'
+const REDIRECT_URI = 'http://localhost:25565/'
+const LOGIN_PORT = 25565
 
 function createRedirectServer(): Promise<string> {
   return new Promise((resolve, reject) => {

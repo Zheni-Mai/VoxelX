@@ -20,7 +20,9 @@ const {
   access,
 } = fsPromises
 
-
+const ELYBY_CLIENT_ID = 'voxelxs'
+const ELYBY_CLIENT_SECRET = 'x57aFP2velPTM_iPgQsAXR8pE-P8ZEAVkGyEMruNl4muSFSmaBTAMlTqhAn6xYgn'
+const ELYBY_REDIRECT_URI = 'https://foxstudio.site/api/elyby-callback.html'
 
 export function loadAccountHandlers(mainWindow: BrowserWindow) {
 

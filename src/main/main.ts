@@ -46,9 +46,7 @@ let createUpdateWindowFromUpdater: () => BrowserWindow
 let tray: Tray | null = null
 let musicServerPort: number = 0;
 
-const DISCORD_CLIENT_ID = '1441334202518999091'
-const ONLINE_TRACKING_API='https://api.foxstudio.site/online.php'
-const ONLINE_API_KEY='day_la_mot_chuoi_bi_mat_rat_dai_va_kho_doan_abc123XYZ789!'
+
 
 let rpc: DiscordRPC.Client | null = null
 let rpcReady = false
