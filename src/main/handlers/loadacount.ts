@@ -21,6 +21,7 @@ const {
 } = fsPromises
 
 
+
 export function loadAccountHandlers(mainWindow: BrowserWindow) {
 
     ipcMain.handle('openMicrosoftLogin', async () => {

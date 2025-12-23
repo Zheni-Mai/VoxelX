@@ -8,7 +8,7 @@ export interface MonitoredServer {
 
 let cachedServers: MonitoredServer[] = [];
 let lastFetchTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 phút
+const CACHE_DURATION = 5 * 60 * 1000; 
 
 export async function getMonitoredServers(): Promise<MonitoredServer[]> {
   const now = Date.now();

@@ -5,6 +5,7 @@ import { BrowserWindow } from 'electron';
 import { v4 as uuidv4 } from 'uuid';
 import fetch from 'node-fetch';
 
+const METERED_API_KEY = '26afed197e74ad2dd4bb105f77d7af7792f5';
 
 let ICE_SERVERS: any[] = [{ urls: 'stun:stun.l.google.com:19302' }]
 
@@ -61,22 +62,18 @@ async function refreshIceServers() {
   }
 }
 
-// Refresh lúc khởi động và mỗi giờ
 (async () => {
   await refreshIceServers();
   setInterval(refreshIceServers, 3600_000);
 })();
 
-// Room hiện tại do máy này làm host (nếu có)
 let currentHostRoomId: string | null = null;
-
-// Danh sách tất cả peer đang kết nối (cả host và joiner trên toàn app)
 interface PeerInfo {
   roomId: string;
   clientId: string;
   username: string;
   isHost: boolean;
-  lastActive: number; // Dùng để tính ping
+  lastActive: number; 
 }
 
 const connectedPeers = new Map<string, PeerInfo>();
@@ -112,7 +109,6 @@ function broadcastToAllWindows(channel: string, data: any) {
   });
 }
 
-// Cập nhật thời gian hoạt động của peer (dùng để tính ping)
 function updatePeerActivity(clientId: string) {
   const info = connectedPeers.get(clientId);
   if (info) {
@@ -120,7 +116,6 @@ function updatePeerActivity(clientId: string) {
   }
 }
 
-// Xóa peer khi disconnect
 function removePeer(clientId: string) {
   connectedPeers.delete(clientId);
 }
@@ -142,7 +137,6 @@ async function startHost(localPort: number, roomId: string): Promise<ProxyInstan
     clientSocket.on('data', (data: Buffer) => {
       if (dc.isOpen()) {
         dc.sendMessageBinary(data);
-        // Cập nhật ping khi có dữ liệu từ game
         for (const info of connectedPeers.values()) {
           if (info.roomId === roomId && !info.isHost) {
             updatePeerActivity(info.clientId);
@@ -165,17 +159,14 @@ async function startHost(localPort: number, roomId: string): Promise<ProxyInstan
     });
   });
 
-  // === SIGNALING: Setup trước khi listen TCP ===
   peer.onLocalDescription((sdp: string, type: string) => {
     console.log(`[${roomId}] Host generated offer`);
 
-    // LƯU OFFER VÀO SIGNALING TRUNG GIAN ĐỂ JOINER Ở PROCESS KHÁC NHẬN ĐƯỢC
     if (!signalingChannels.has(roomId)) {
       signalingChannels.set(roomId, { candidates: [] });
     }
     signalingChannels.get(roomId)!.offer = { desc: sdp, type };
 
-    // Vẫn broadcast cho test localhost (cùng process)
     broadcastToAllWindows('webrtc:offer', { roomId, desc: sdp, type });
   });
 
@@ -199,10 +190,9 @@ async function startHost(localPort: number, roomId: string): Promise<ProxyInstan
     }
   });
 
-  // Khi có joiner kết nối thành công qua DataChannel
   dc.onOpen(() => {
     const clientId = uuidv4();
-    const username = 'Host (Bạn)';  // Host dùng tên mặc định, hoặc lấy từ account nếu cần
+    const username = 'Host (Bạn)'; 
     connectedPeers.set(clientId, { roomId, clientId, username, isHost: true, lastActive: Date.now() });
     console.log(`[${roomId}] Host joined: ${username}`);
   });
@@ -224,11 +214,9 @@ async function startHost(localPort: number, roomId: string): Promise<ProxyInstan
     }
   });
 
-  // === BẮT ĐẦU TẠO OFFER NGAY SAU KHI SETUP SIGNALING ===
   console.log(`[${roomId}] Host starting offer generation...`);
   peer.setLocalDescription();
 
-  // Chờ offer được lưu vào signalingChannels
   let waited = 0;
   while (waited < 2000) {
     const signaling = signalingChannels.get(roomId);
@@ -240,14 +228,12 @@ async function startHost(localPort: number, roomId: string): Promise<ProxyInstan
     waited += 100;
   }
 
-  // Áp dụng candidate pending
   const pending = pendingCandidates.get(roomId) || [];
   pending.forEach(({ candidate, mid }) => {
     if (candidate && mid) peer.addRemoteCandidate(candidate, mid);
   });
   pendingCandidates.delete(roomId);
 
-  // Listen TCP server và return proxy
   return new Promise((resolve, reject) => {
     tcpServer.listen(localPort, () => {
       console.log(`[${roomId}] TCP proxy listening on localhost:${localPort}`);
@@ -317,11 +303,9 @@ async function joinPeer(roomId: string, remoteHost: string, remotePort: number, 
     console.log(`[${roomId}] Sending ICE candidate to host`);
     broadcastToAllWindows('webrtc:candidate', { roomId, candidate, mid });
 
-    // Gửi candidate vào signaling trung gian
     handleWebRTCSignaling('webrtc:candidate', { roomId, candidate, mid });
   });
 
-  // Đợi offer từ host thông qua signalingChannels (polling)
   console.log(`[${roomId}] Waiting for offer from host...`);
   const offer = await new Promise<{ desc: string; type: string }>((resolve, reject) => {
     const startTime = Date.now();
@@ -334,17 +318,15 @@ async function joinPeer(roomId: string, remoteHost: string, remotePort: number, 
         console.error(`[${roomId}] Timeout waiting for offer`);
         reject(new Error('Timeout: Không nhận được tín hiệu từ host (15s)'));
       } else {
-        setTimeout(checkOffer, 500); // Kiểm tra lại sau 500ms
+        setTimeout(checkOffer, 500); 
       }
     };
     checkOffer();
   });
 
-  // Áp dụng offer từ host
   console.log(`[${roomId}] Setting remote description (offer)`);
   peer.setRemoteDescription(offer.desc, offer.type as nodeDataChannel.DescriptionType);
 
-  // Áp dụng tất cả ICE candidates đã nhận từ host trước đó
   const currentSignaling = getPendingSignaling(roomId);
   if (currentSignaling && currentSignaling.candidates.length > 0) {
     console.log(`[${roomId}] Applying ${currentSignaling.candidates.length} pending ICE candidates`);
@@ -355,14 +337,12 @@ async function joinPeer(roomId: string, remoteHost: string, remotePort: number, 
     });
   }
 
-  // Tạo và gửi answer
   console.log(`[${roomId}] Generating local description (answer)`);
   peer.setLocalDescription();
 
   return { roomId, peer, dc, tcpClient, isHost: false };
 }
 
-// Public API
 export async function createRoom(localPort: number): Promise<string> {
   const roomId = uuidv4().slice(0, 8);
   const proxy = await startHost(localPort, roomId);
@@ -393,7 +373,6 @@ export function dissolveRoom(roomId: string): void {
 
   activeProxies.delete(roomId);
 
-  // Xóa tất cả peer liên quan đến room này
   for (const [id, info] of connectedPeers.entries()) {
     if (info.roomId === roomId) {
       connectedPeers.delete(id);
@@ -412,7 +391,6 @@ export function getCurrentRoomId(): string | null {
   return currentHostRoomId;
 }
 
-// Lấy danh sách người chơi trong phòng (dùng cho UI)
 export function getRoomParticipants(roomId: string): Array<{
   displayId: string;
   isHost: boolean;
@@ -430,7 +408,7 @@ export function getRoomParticipants(roomId: string): Array<{
     if (info.roomId === roomId) {
       const ping = now - info.lastActive;
       participants.push({
-        displayId: info.username || `Player (${info.clientId.slice(0, 6)}..)`,  // ← Dùng username, fallback UUID
+        displayId: info.username || `Player (${info.clientId.slice(0, 6)}..)`,
         isHost: info.isHost,
         ping: ping < 9999 ? ping : 9999,
       });
@@ -440,19 +418,15 @@ export function getRoomParticipants(roomId: string): Array<{
   return participants;
 }
 
-// Xử lý signaling từ renderer
 export function handleWebRTCSignaling(channel: string, payload: any) {
   const { roomId } = payload;
 
   if (channel === 'webrtc:offer') {
     console.log(`[Signaling] Received offer for room ${roomId}`);
-    // Lưu offer để joiner lấy
     if (!signalingChannels.has(roomId)) {
       signalingChannels.set(roomId, { candidates: [] });
     }
     signalingChannels.get(roomId)!.offer = { desc: payload.desc, type: payload.type };
-
-    // Broadcast đến tất cả window (cùng process) - giữ lại cho test localhost
     broadcastToAllWindows('webrtc:offer-received', payload);
   } else if (channel === 'webrtc:answer') {
     console.log(`[Signaling] Received answer for room ${roomId}`);
@@ -468,8 +442,6 @@ export function handleWebRTCSignaling(channel: string, payload: any) {
         proxy.peer.addRemoteCandidate(payload.candidate, payload.mid);
       }
     }
-
-    // Lưu candidate cho joiner
     if (signalingChannels.has(roomId)) {
       signalingChannels.get(roomId)!.candidates.push({ candidate: payload.candidate, mid: payload.mid });
     }
@@ -480,7 +452,6 @@ export function getPendingSignaling(roomId: string): { offer?: { desc: string; t
   return signalingChannels.get(roomId) || null;
 }
 
-// Optional: Dọn dẹp peer không hoạt động lâu (tùy chọn)
 // setInterval(() => {
 //   const now = Date.now();
 //   for (const [id, info] of connectedPeers.entries()) {
